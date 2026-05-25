@@ -1,0 +1,6 @@
+[alias]
+dev = "watch -c -w src -w Cargo.toml -x check -x run"
+watch-run = "watch -c -w src -w Cargo.toml -x run"
+watch-check = "watch -c -w src -w Cargo.toml -x check"
+watch-test = "watch -c -w src -w Cargo.toml -x test"
+watch-clippy = "watch -c -w src -w Cargo.toml -x 'clippy --all-targets -- -D warnings'"
