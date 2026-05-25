@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::NaiveDateTime;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -7,5 +7,6 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
-    pub created_at: DateTime<Utc>,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
 }
