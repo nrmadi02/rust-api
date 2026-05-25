@@ -21,6 +21,10 @@ impl JwtService {
         Self { secret, expires_in }
     }
 
+    pub fn expires_in(&self) -> i64 {
+        self.expires_in
+    }
+
     pub fn generate(
         &self,
         user_id: Uuid,
