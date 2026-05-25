@@ -1,0 +1,81 @@
+use axum::Json;
+use axum::http::StatusCode;
+use axum::response::{IntoResponse, Response};
+use serde::Serialize;
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum AppError {
+    #[error("internal server error")]
+    InternalServerError,
+    #[error("not found")]
+    NotFound,
+    #[error("bad request")]
+    BadRequest,
+    #[error("unauthorized")]
+    Unauthorized,
+    #[error("forbidden")]
+    Forbidden,
+    #[error("validation failed")]
+    Validation(Vec<String>),
+}
+
+#[derive(Debug, Serialize)]
+struct ErrorBody {
+    success: bool,
+    error: ErrorDetail,
+}
+#[derive(Debug, Serialize)]
+struct ErrorDetail {
+    code: &'static str,
+    message: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    details: Option<Vec<String>>,
+}
+
+impl AppError {
+    fn status(&self) -> StatusCode {
+        match self {
+            AppError::InternalServerError => StatusCode::INTERNAL_SERVER_ERROR,
+            AppError::NotFound => StatusCode::NOT_FOUND,
+            AppError::BadRequest => StatusCode::BAD_REQUEST,
+            AppError::Unauthorized => StatusCode::UNAUTHORIZED,
+            AppError::Forbidden => StatusCode::FORBIDDEN,
+            AppError::Validation(_) => StatusCode::BAD_REQUEST,
+        }
+    }
+    fn code(&self) -> &'static str {
+        match self {
+            AppError::InternalServerError => "INTERNAL_SERVER_ERROR",
+            AppError::NotFound => "NOT_FOUND",
+            AppError::BadRequest => "BAD_REQUEST",
+            AppError::Unauthorized => "UNAUTHORIZED",
+            AppError::Forbidden => "FORBIDDEN",
+            AppError::Validation(_) => "VALIDATION_ERROR",
+        }
+    }
+}
+
+impl IntoResponse for AppError {
+    fn into_response(self) -> Response {
+        let status = self.status();
+        let code = self.code();
+        let message = self.to_string();
+
+        let details = match self {
+            AppError::Validation(details) => Some(details.clone()),
+            _ => None,
+        };
+
+        let body = ErrorBody {
+            success: false,
+            error: ErrorDetail {
+                code,
+                message,
+                details,
+            },
+        };
+        (status, Json(body)).into_response()
+    }
+}
