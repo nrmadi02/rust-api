@@ -3,9 +3,6 @@ use sqlx::PgPool;
 
 use crate::domain::login_attempt::{LoginAttempt, LoginAttemptRepository};
 
-const MAX_FAILED: i32 = 5;
-const LOCK_DURATION_MINUTES: i32 = 15;
-
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
 pub struct PgLoginAttemptRepository {
@@ -32,23 +29,19 @@ impl LoginAttemptRepository for PgLoginAttemptRepository {
         Ok(row)
     }
 
-    async fn upsert_failure(&self, email: &str) -> Result<(), DynError> {
+    async fn save(&self, attempt: &LoginAttempt) -> Result<(), DynError> {
         sqlx::query!(
             r#"
-            INSERT INTO login_attempts (email, failed_count, last_attempt)
-            VALUES ($1, 1, NOW())
+            INSERT INTO login_attempts (email, failed_count, locked_until, last_attempt)
+            VALUES ($1, $2, $3, NOW())
             ON CONFLICT (email) DO UPDATE
-                SET failed_count = login_attempts.failed_count + 1,
-                    last_attempt  = NOW(),
-                    locked_until  = CASE
-                        WHEN login_attempts.failed_count + 1 >= $2
-                        THEN NOW() + ($3::int * INTERVAL '1 minute')
-                        ELSE login_attempts.locked_until
-                    END
+                SET failed_count = EXCLUDED.failed_count,
+                    locked_until = EXCLUDED.locked_until,
+                    last_attempt = NOW()
             "#,
-            email,
-            MAX_FAILED,
-            LOCK_DURATION_MINUTES,
+            attempt.email,
+            attempt.failed_count,
+            attempt.locked_until,
         )
         .execute(&self.pool)
         .await?;
