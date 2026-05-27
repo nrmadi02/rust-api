@@ -1,6 +1,5 @@
 use axum::Json;
 use axum::extract::State;
-use axum::http::StatusCode;
 
 use crate::presentation::dto::auth::UserResponse;
 use crate::presentation::middleware::auth::AuthUser;
@@ -25,29 +24,11 @@ pub async fn me(
     auth: AuthUser,
     State(state): State<AppState>,
 ) -> Result<Json<ApiResponse<UserResponse>>, AppError> {
-    let user = state
-        .user_repository
-        .get_user_by_id(auth.user_id)
-        .await
-        .map_err(|_| AppError::InternalServerError)?;
-
-    if user.is_none() {
-        return Err(AppError::Custom {
-            status: StatusCode::NOT_FOUND,
-            code: "USER_NOT_FOUND",
-            message: "User not found".to_string(),
-        });
-    }
-
-    let user = user.unwrap();
+    let user = state.auth_service.get_current_user(auth.user_id).await?;
 
     Ok(Json(ApiResponse::success(
         true,
         "User retrieved successfully".to_string(),
-        UserResponse {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-        },
+        user.into(),
     )))
 }

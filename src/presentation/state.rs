@@ -1,11 +1,10 @@
-use crate::application::jwt::JwtService;
-use crate::application::login_attempt::LoginAttemptService;
-use crate::infrastructure::user_repository::UserRepository;
 use std::sync::Arc;
+
+use crate::application::auth::AuthService;
+use crate::application::jwt::JwtService;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub user_repository: Arc<UserRepository>,
+    pub auth_service: Arc<AuthService>,
     pub jwt_service: Arc<JwtService>,
-    pub login_attempt_service: Arc<LoginAttemptService>,
 }
