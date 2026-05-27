@@ -4,6 +4,8 @@ use axum::response::{IntoResponse, Response};
 use serde::Serialize;
 use thiserror::Error;
 
+use crate::application::error::ApplicationError;
+
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("internal server error")]
@@ -27,11 +29,7 @@ pub enum AppError {
 }
 
 impl AppError {
-    pub fn custom(
-        status: StatusCode,
-        code: &'static str,
-        message: impl Into<String>,
-    ) -> Self {
+    pub fn custom(status: StatusCode, code: &'static str, message: impl Into<String>) -> Self {
         Self::Custom {
             status,
             code,
@@ -99,5 +97,36 @@ impl IntoResponse for AppError {
             },
         };
         (status, Json(body)).into_response()
+    }
+}
+
+impl From<ApplicationError> for AppError {
+    fn from(err: ApplicationError) -> Self {
+        match err {
+            ApplicationError::EmailAlreadyRegistered => AppError::custom(
+                StatusCode::CONFLICT,
+                "EMAIL_ALREADY_REGISTERED",
+                "Email is already registered",
+            ),
+            ApplicationError::InvalidCredentials => AppError::custom(
+                StatusCode::UNAUTHORIZED,
+                "INVALID_CREDENTIALS",
+                "Invalid email or password",
+            ),
+            ApplicationError::TooManyAttempts {
+                seconds_until_unlock,
+            } => AppError::custom(
+                StatusCode::TOO_MANY_REQUESTS,
+                "TOO_MANY_ATTEMPTS",
+                format!(
+                    "Account locked. Try again in {} seconds.",
+                    seconds_until_unlock
+                ),
+            ),
+            ApplicationError::UserNotFound => {
+                AppError::custom(StatusCode::NOT_FOUND, "USER_NOT_FOUND", "User not found")
+            }
+            ApplicationError::Unexpected(_) => AppError::InternalServerError,
+        }
     }
 }
