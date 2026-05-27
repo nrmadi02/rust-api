@@ -1,4 +1,5 @@
 use sqlx::PgPool;
+use uuid::Uuid;
 
 use crate::domain::user::User;
 
@@ -16,6 +17,16 @@ impl UserRepository {
             User,
             "SELECT id, name, email, password as password_hash, created_at, updated_at FROM users WHERE email = $1",
             email
+        )
+        .fetch_optional(&self.pool)
+        .await
+    }
+
+    pub async fn get_user_by_id(&self, id: Uuid) -> Result<Option<User>, sqlx::Error> {
+        sqlx::query_as!(
+            User,
+            "SELECT id, name, email, password as password_hash, created_at, updated_at FROM users WHERE id = $1",
+            id
         )
         .fetch_optional(&self.pool)
         .await
