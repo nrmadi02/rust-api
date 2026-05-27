@@ -10,6 +10,8 @@ use axum::Router;
 use config::env::Config;
 
 use self::application::jwt::JwtService;
+use self::application::login_attempt::LoginAttemptService;
+use self::infrastructure::login_attempt_repository::PgLoginAttemptRepository;
 use self::infrastructure::user_repository::UserRepository;
 use self::presentation::state::AppState;
 
@@ -21,11 +23,14 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_env()?;
     let pool = sqlx::PgPool::connect(&config.database_url).await?;
     let state = AppState {
-        user_repository: Arc::new(UserRepository::new(pool)),
+        user_repository: Arc::new(UserRepository::new(pool.clone())),
         jwt_service: Arc::new(JwtService::new(
             config.jwt_secret.clone(),
             config.jwt_expires_in as i64,
         )),
+        login_attempt_service: Arc::new(LoginAttemptService::new(Arc::new(
+            PgLoginAttemptRepository::new(pool.clone()),
+        ))),
     };
     let app = build_router().with_state(state);
     let addr = format!("127.0.0.1:{}", config.port);
