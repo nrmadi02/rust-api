@@ -18,6 +18,26 @@ pub enum AppError {
     Forbidden,
     #[error("validation failed")]
     Validation(Vec<String>),
+    #[error("{message}")]
+    Custom {
+        status: StatusCode,
+        code: &'static str,
+        message: String,
+    },
+}
+
+impl AppError {
+    pub fn custom(
+        status: StatusCode,
+        code: &'static str,
+        message: impl Into<String>,
+    ) -> Self {
+        Self::Custom {
+            status,
+            code,
+            message: message.into(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize)]
@@ -43,6 +63,7 @@ impl AppError {
             AppError::Unauthorized => StatusCode::UNAUTHORIZED,
             AppError::Forbidden => StatusCode::FORBIDDEN,
             AppError::Validation(_) => StatusCode::BAD_REQUEST,
+            AppError::Custom { status, .. } => *status,
         }
     }
     fn code(&self) -> &'static str {
@@ -53,6 +74,7 @@ impl AppError {
             AppError::Unauthorized => "UNAUTHORIZED",
             AppError::Forbidden => "FORBIDDEN",
             AppError::Validation(_) => "VALIDATION_ERROR",
+            AppError::Custom { code, .. } => code,
         }
     }
 }
