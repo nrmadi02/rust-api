@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────────
+  # unoserver — LibreOffice conversion daemon
+  # ─────────────────────────────────────────────
+  unoserver:
+    build:
+      context: ./docker/unoserver
+      dockerfile: Dockerfile
+    container_name: task-tools-unoserver
+    ports:
+      - "2003:2003"
+    restart: unless-stopped
+    # Resource limit — LibreOffice butuh cukup memory
+    mem_limit: 1g
+    cpus: "1.0"
+    environment:
+      - TZ=Asia/Jakarta
+    # Volume untuk file upload/output (shared dengan app)
+    volumes:
+      - uploads_data:/app/uploads
+      - outputs_data:/app/outputs
+
+# ─────────────────────────────────────────────
+# Named volumes
+# ─────────────────────────────────────────────
+volumes:
+  uploads_data:
+  outputs_data:
