@@ -92,10 +92,10 @@
 
 ### 📂 1.2 — Domain Layer
 
-- **Entity `ConversionJob`**
+- **Entity `ConversionJob`** ✅ SELESAI
   - Buat struct di `src/domain/conversion_job.rs`
   - Fields: `id`, `user_id`, `job_type` (enum: PdfToWord, WordToPdf, dll.), `status` (enum: Draft, Processing, Done, Failed), `input_file`, `output_file`, `created_at`, `updated_at`
-- **Entity `ActivityLog`**
+- **Entity `ActivityLog`** ✅ SELESAI
   - Buat struct di `src/domain/activity_log.rs`
   - Fields: `id`, `user_id`, `action` (string), `resource_type`, `resource_id`, `ip_address`, `user_agent`, `created_at`
 - **Repository Trait `ConversionJobRepository`**
