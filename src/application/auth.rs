@@ -1,18 +1,25 @@
 use std::sync::Arc;
 
+use chrono::NaiveDateTime;
 use uuid::Uuid;
 
 use crate::application::error::ApplicationError;
 use crate::application::jwt::JwtService;
 use crate::application::login_attempt::LoginAttemptService;
 use crate::application::password::{hash_password, verify_password};
-use crate::domain::user::{User, UserRepository};
+use crate::domain::user::{User, UserRepository, UserStatus};
 
 #[derive(Debug)]
 pub struct UserProfile {
     pub id: Uuid,
     pub email: String,
     pub name: String,
+    pub status: UserStatus,
+    pub approved_by: Option<Uuid>,
+    pub rejected_at: Option<NaiveDateTime>,
+    pub rejected_by: Option<Uuid>,
+    pub rejection_reason: Option<String>,
+    pub role: String,
 }
 
 impl From<User> for UserProfile {
@@ -21,6 +28,12 @@ impl From<User> for UserProfile {
             id: user.id,
             email: user.email,
             name: user.name,
+            status: user.status,
+            approved_by: user.approved_by,
+            rejected_at: user.rejected_at,
+            rejected_by: user.rejected_by,
+            rejection_reason: user.rejection_reason,
+            role: user.role,
         }
     }
 }
@@ -97,6 +110,11 @@ impl AuthService {
             return Err(ApplicationError::InvalidCredentials);
         }
 
+        if user.status == UserStatus::Rejected || user.status == UserStatus::Suspended {
+            self.login_attempt_service.record_failure(email).await?;
+            return Err(ApplicationError::UserNotActive);
+        }
+
         self.login_attempt_service.reset(email).await?;
 
         let token = self
@@ -117,5 +135,12 @@ impl AuthService {
             .await?
             .map(UserProfile::from)
             .ok_or(ApplicationError::UserNotFound)
+    }
+
+    pub async fn get_current_user_status(
+        &self,
+        user_id: Uuid,
+    ) -> Result<UserStatus, ApplicationError> {
+        Ok(self.user_repo.get_status(user_id).await?)
     }
 }

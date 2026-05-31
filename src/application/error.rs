@@ -14,6 +14,8 @@ pub enum ApplicationError {
     UserNotFound,
     #[error(transparent)]
     Unexpected(#[from] DynError),
+    #[error("user not active")]
+    UserNotActive,
 }
 
 #[derive(Debug)]
