@@ -28,6 +28,7 @@ utoipa = { version = "5.5", features = ["uuid", "chrono"] }
 utoipa-scalar = { version = "0.3", features = ["axum"] }
 tower_governor = { version = "0.8", features = ["axum"] }
 async-trait = "0.1.89"
+lopdf = { version = "0.40.0" }
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
