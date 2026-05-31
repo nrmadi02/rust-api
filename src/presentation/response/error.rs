@@ -127,6 +127,11 @@ impl From<ApplicationError> for AppError {
                 AppError::custom(StatusCode::NOT_FOUND, "USER_NOT_FOUND", "User not found")
             }
             ApplicationError::Unexpected(_) => AppError::InternalServerError,
+            ApplicationError::UserNotActive => AppError::custom(
+                StatusCode::UNAUTHORIZED,
+                "USER_NOT_ACTIVE",
+                "User is not active. Please contact support.",
+            ),
         }
     }
 }
