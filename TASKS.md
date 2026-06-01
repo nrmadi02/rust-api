@@ -98,13 +98,13 @@
 - **Entity `ActivityLog`** ✅ SELESAI
   - Buat struct di `src/domain/activity_log.rs`
   - Fields: `id`, `user_id`, `action` (string), `resource_type`, `resource_id`, `ip_address`, `user_agent`, `created_at`
-- **Repository Trait `ConversionJobRepository`**
+- **Repository Trait `ConversionJobRepository`** ✅ SELESAI
   - `create_job()` — simpan job baru sebagai Draft
   - `find_by_id()` — ambil job by ID
   - `find_by_user()` — list semua job milik user (dengan pagination)
   - `update_status()` — update status job (Processing → Done / Failed)
   - `delete_draft()` — hapus job yang masih Draft
-- **Repository Trait `ActivityLogRepository`**
+- **Repository Trait `ActivityLogRepository`** ✅ SELESAI
   - `log_activity()` — insert log baru
   - `find_by_user()` — ambil history activity user (dengan pagination & filter)
 
@@ -112,13 +112,13 @@
 
 ### ⚙️ 1.3 — Application Layer (Use Cases)
 
-- **Use Case: `UploadAndConvertPdfToWord`**
+- **Use Case: `UploadAndConvertPdfToWord`** ✅ SELESAI
   - Validasi file: magic bytes check (`%PDF`), hanya `.pdf`, ukuran max 50MB
   - Simpan file ke storage dengan nama sanitized (`{job_id}_input.pdf`)
   - Buat `ConversionJob` dengan status `**draft**`
   - Catat ke `activity_logs` (action: `upload_pdf`)
   - Return `job_id` + status `draft` → **202 Accepted** (tidak tunggu konversi selesai)
-- **Use Case: `EnqueueConversionJob`** *(dipanggil saat user confirm draft)*
+- **Use Case: `EnqueueConversionJob`** *(dipanggil saat user confirm draft)*  ✅ SELESAI
   - Update status job: `draft` → `queued`
   - Spawn Tokio async task untuk proses konversi di background:
     ```
