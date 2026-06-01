@@ -1,9 +1,11 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+use std::path::Path;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
 #[sqlx(type_name = "text")]
 pub enum JobType {
     PdfToWord,
@@ -26,11 +28,12 @@ impl JobType {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
 #[sqlx(type_name = "text")]
 pub enum JobStatus {
     Draft,
     Processing,
+    Queued,
     Done,
     Failed,
 }
@@ -40,8 +43,12 @@ impl JobStatus {
         matches!(self, JobStatus::Done | JobStatus::Failed)
     }
 
-    pub fn can_process(&self) -> bool {
+    pub fn can_enqueue(&self) -> bool {
         matches!(self, JobStatus::Draft)
+    }
+
+    pub fn can_process(&self) -> bool {
+        matches!(self, JobStatus::Queued)
     }
 }
 
@@ -54,6 +61,7 @@ pub struct ConversionJob {
     pub input_file: String,
     pub output_file: Option<String>,
     pub error_message: Option<String>,
+    pub duration_ms: Option<i32>,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
@@ -69,32 +77,35 @@ impl ConversionJob {
             input_file,
             output_file: None,
             error_message: None,
+            duration_ms: None,
             created_at: now,
             updated_at: now,
         }
     }
-    pub fn start_processing(&mut self) -> Result<(), String> {
-        if !self.status.can_process() {
-            return Err(format!(
-                "Cannot start processing job with status {:?}",
-                self.status
-            ));
+
+    pub fn new_with_id(id: Uuid, user_id: Uuid, job_type: JobType, input_file: String) -> Self {
+        let now = Utc::now();
+        Self {
+            id,
+            user_id,
+            job_type,
+            status: JobStatus::Draft,
+            input_file,
+            output_file: None,
+            error_message: None,
+            duration_ms: None,
+            created_at: now,
+            updated_at: now,
         }
-        self.status = JobStatus::Processing;
-        self.updated_at = Utc::now();
-        Ok(())
-    }
-    pub fn mark_done(&mut self, output_file: String) {
-        self.status = JobStatus::Done;
-        self.output_file = Some(output_file);
-        self.error_message = None;
-        self.updated_at = Utc::now();
     }
 
-    pub fn mark_failed(&mut self, error_message: String) {
-        self.status = JobStatus::Failed;
-        self.error_message = Some(error_message);
+    pub fn enqueue(&mut self) -> Result<(), String> {
+        if !self.status.can_enqueue() {
+            return Err(format!("Cannot enqueue job with status {:?}", self.status));
+        }
+        self.status = JobStatus::Queued;
         self.updated_at = Utc::now();
+        Ok(())
     }
 
     pub fn validate_input_file(&self) -> Result<(), String> {
@@ -125,4 +136,37 @@ impl ConversionJob {
             self.job_type.output_extension()
         )
     }
+}
+
+type DynError = Box<dyn std::error::Error + Send + Sync>;
+
+#[async_trait::async_trait]
+pub trait ConversionJobRepository: Send + Sync {
+    async fn create_job(&self, job: &ConversionJob) -> Result<ConversionJob, DynError>;
+    async fn find_by_id(&self, id: Uuid) -> Result<Option<ConversionJob>, DynError>;
+    async fn find_by_user(
+        &self,
+        user_id: Uuid,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<ConversionJob>, u64), DynError>;
+    async fn update_status(
+        &self,
+        id: Uuid,
+        status: JobStatus,
+        output_file: Option<&str>,
+        error_message: Option<&str>,
+        duration_ms: Option<i32>,
+    ) -> Result<ConversionJob, DynError>;
+    async fn delete_draft(&self, id: Uuid) -> Result<(), DynError>;
+}
+
+#[async_trait::async_trait]
+pub trait UnoConverter: Send + Sync {
+    async fn convert(
+        &self,
+        input: &Path,
+        output: &Path,
+        job_type: &JobType,
+    ) -> Result<(), DynError>;
 }
