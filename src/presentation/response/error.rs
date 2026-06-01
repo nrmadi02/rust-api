@@ -132,6 +132,20 @@ impl From<ApplicationError> for AppError {
                 "USER_NOT_ACTIVE",
                 "User is not active. Please contact support.",
             ),
+            ApplicationError::InvalidFile(msg) => {
+                AppError::custom(StatusCode::BAD_REQUEST, "INVALID_FILE", msg)
+            }
+            ApplicationError::StorageError(msg) => {
+                AppError::custom(StatusCode::INTERNAL_SERVER_ERROR, "STORAGE_ERROR", msg)
+            }
+            ApplicationError::JobNotFound => {
+                AppError::custom(StatusCode::NOT_FOUND, "JOB_NOT_FOUND", "Job not found")
+            }
+            ApplicationError::JobNotDraft => AppError::custom(
+                StatusCode::BAD_REQUEST,
+                "JOB_NOT_DRAFT",
+                "Job is not in draft status",
+            ),
         }
     }
 }
