@@ -1,5 +1,8 @@
 use thiserror::Error;
 
+use crate::domain::pdf_validator::PdfValidationError;
+use crate::domain::storage::StorageError;
+
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
 #[derive(Debug, Error)]
@@ -16,6 +19,14 @@ pub enum ApplicationError {
     Unexpected(#[from] DynError),
     #[error("user not active")]
     UserNotActive,
+    #[error("invalid file: {0}")]
+    InvalidFile(String),
+    #[error("storage error: {0}")]
+    StorageError(String),
+    #[error("job not found")]
+    JobNotFound,
+    #[error("job is not in draft status")]
+    JobNotDraft,
 }
 
 #[derive(Debug)]
@@ -32,5 +43,32 @@ impl std::error::Error for DisplayError {}
 impl ApplicationError {
     pub fn from_display(err: impl std::fmt::Display) -> Self {
         Self::Unexpected(Box::new(DisplayError(err.to_string())))
+    }
+}
+
+impl From<PdfValidationError> for ApplicationError {
+    fn from(err: PdfValidationError) -> Self {
+        use PdfValidationError::*;
+        match err {
+            EmptyFile => ApplicationError::InvalidFile("File is empty".into()),
+            FileTooLarge {
+                max_mb,
+                actual_bytes,
+            } => ApplicationError::InvalidFile(format!(
+                "File too large (max {}MB, got {} bytes)",
+                max_mb, actual_bytes
+            )),
+            InvalidMagicBytes => ApplicationError::InvalidFile("Not a valid PDF file".into()),
+            CorruptOrUnreadable => {
+                ApplicationError::InvalidFile("PDF is corrupt or unreadable".into())
+            }
+            PasswordProtected => ApplicationError::InvalidFile("PDF is password protected".into()),
+        }
+    }
+}
+
+impl From<StorageError> for ApplicationError {
+    fn from(err: StorageError) -> Self {
+        ApplicationError::StorageError(format!("{:?}", err))
     }
 }
