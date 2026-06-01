@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use tokio::fs;
 use uuid::Uuid;
 
+use crate::domain::conversion_job::JobType;
 use crate::domain::storage::{StorageError, StorageRepository, StorageResult, StoredPaths};
 
 pub struct LocalStorageRepository {
@@ -41,8 +42,13 @@ impl LocalStorageRepository {
         self.outputs_root().join(job_id.to_string())
     }
 
-    fn output_file(&self, job_id: Uuid) -> PathBuf {
-        self.output_dir(job_id).join("output.docx")
+    fn output_filename(job_type: JobType) -> String {
+        format!("output.{}", job_type.output_extension())
+    }
+
+    fn output_file(&self, job_id: Uuid, job_type: JobType) -> PathBuf {
+        self.output_dir(job_id)
+            .join(Self::output_filename(job_type))
     }
 
     fn check_size(&self, data: &[u8]) -> StorageResult<()> {
@@ -68,6 +74,7 @@ impl LocalStorageRepository {
         Ok(())
     }
 
+    #[allow(dead_code)]
     fn relativize(&self, absolute: &Path) -> StorageResult<String> {
         absolute
             .strip_prefix(&self.base_path)
@@ -82,8 +89,12 @@ impl StorageRepository for LocalStorageRepository {
         format!("uploads/{}/{}/input.pdf", user_id, job_id)
     }
 
-    fn output_relative_path(&self, job_id: Uuid) -> String {
-        format!("outputs/{}/output.docx", job_id)
+    fn output_relative_path(&self, job_id: Uuid, job_type: JobType) -> String {
+        format!(
+            "outputs/{}/{}",
+            job_id,
+            Self::output_filename(job_type)
+        )
     }
 
     async fn ensure_layout(&self) -> StorageResult<()> {
@@ -100,17 +111,23 @@ impl StorageRepository for LocalStorageRepository {
         &self,
         user_id: Uuid,
         job_id: Uuid,
+        job_type: JobType,
         data: &[u8],
     ) -> StorageResult<StoredPaths> {
         self.check_size(data)?;
         let input = self.input_file(user_id, job_id);
-        let output = self.output_file(job_id);
+        let output = self.output_file(job_id, job_type);
         Self::write_file(&input, data).await?;
         Ok(StoredPaths { input, output })
     }
 
-    async fn save_output(&self, job_id: Uuid, data: &[u8]) -> StorageResult<PathBuf> {
-        let path = self.output_file(job_id);
+    async fn save_output(
+        &self,
+        job_id: Uuid,
+        job_type: JobType,
+        data: &[u8],
+    ) -> StorageResult<PathBuf> {
+        let path = self.output_file(job_id, job_type);
         Self::write_file(&path, data).await?;
         Ok(path)
     }
@@ -126,8 +143,8 @@ impl StorageRepository for LocalStorageRepository {
         })
     }
 
-    async fn read_output(&self, job_id: Uuid) -> StorageResult<Vec<u8>> {
-        let path = self.output_file(job_id);
+    async fn read_output(&self, job_id: Uuid, job_type: JobType) -> StorageResult<Vec<u8>> {
+        let path = self.output_file(job_id, job_type);
         fs::read(&path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 StorageError::NotFound
