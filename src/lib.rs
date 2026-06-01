@@ -54,7 +54,6 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
     let state = AppState {
         auth_service,
         jwt_service,
-        storage,
     };
 
     let app = build_router().with_state(state);
