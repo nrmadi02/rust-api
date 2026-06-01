@@ -5,7 +5,7 @@ use sqlx::FromRow;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
-#[sqlx(type_name = "text")]
+#[sqlx(type_name = "text", rename_all = "snake_case")]
 pub enum ResourceType {
     ConversionJob,
     User,
@@ -72,12 +72,7 @@ impl ActivityLog {
         self
     }
 
-    pub fn upload_file(
-        user_id: Uuid,
-        job_id: Uuid,
-        file_name: &str,
-        file_size: i64,
-    ) -> Self {
+    pub fn upload_file(user_id: Uuid, job_id: Uuid, file_name: &str, file_size: i64) -> Self {
         let metadata = serde_json::json!({
             "file_name": file_name,
             "file_size_bytes": file_size,
@@ -116,16 +111,33 @@ impl ActivityLog {
     }
 
     pub fn login(user_id: Uuid, success: bool) -> Self {
-        let action = if success { "login_success" } else { "login_failed" };
+        let action = if success {
+            "login_success"
+        } else {
+            "login_failed"
+        };
         let metadata = serde_json::json!({
             "success": success,
         });
 
-        Self::new(user_id, action, Some(ResourceType::User), Some(user_id))
-            .with_metadata(metadata)
+        Self::new(user_id, action, Some(ResourceType::User), Some(user_id)).with_metadata(metadata)
     }
 
     pub fn logout(user_id: Uuid) -> Self {
         Self::new(user_id, "logout", Some(ResourceType::User), Some(user_id))
     }
+}
+
+type DynError = Box<dyn std::error::Error + Send + Sync>;
+
+#[async_trait::async_trait]
+pub trait ActivityLogRepository: Send + Sync {
+    async fn log_activity(&self, log: &ActivityLog) -> Result<(), DynError>;
+    async fn find_by_user(
+        &self,
+        user_id: Uuid,
+        page: u32,
+        per_page: u32,
+        action: Option<&str>,
+    ) -> Result<(Vec<ActivityLog>, u64), DynError>;
 }
