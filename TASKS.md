@@ -126,14 +126,14 @@
     ```
   - Di dalam task: panggil `UnoserverClient::convert()`, ukur durasi, update DB
   - Jika gagal: simpan `error_message`, update status ke `failed`
-- **Use Case: `GetConversionJobStatus`**
+- **Use Case: `GetConversionJobStatus`** ✅ SELESAI
   - Ambil status job by ID
   - Validasi ownership (user hanya bisa lihat job milik sendiri)
-- **Use Case: `ListMyConversionJobs`**
+- **Use Case: `ListMyConversionJobs`**  ✅ SELESAI
   - Ambil semua job milik user yang login
   - Support pagination (`page`, `per_page`)
   - Filter by status (Draft, Done, Failed)
-- **Use Case: `DeleteDraftJob`**
+- **Use Case: `DeleteDraftJob`** ✅ SELESAI
   - Hapus job yang masih berstatus Draft
   - Hapus file upload dari storage
   - Validasi ownership
