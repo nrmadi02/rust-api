@@ -29,7 +29,7 @@ impl JobType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
-#[sqlx(type_name = "text")]
+#[sqlx(type_name = "text", rename_all = "snake_case")]
 pub enum JobStatus {
     Draft,
     Processing,
@@ -149,6 +149,7 @@ pub trait ConversionJobRepository: Send + Sync {
         user_id: Uuid,
         page: u32,
         per_page: u32,
+        status: Option<JobStatus>,
     ) -> Result<(Vec<ConversionJob>, u64), DynError>;
     async fn update_status(
         &self,

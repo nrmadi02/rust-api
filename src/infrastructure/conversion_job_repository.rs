@@ -81,6 +81,7 @@ impl ConversionJobRepository for PgConversionJobRepository {
         user_id: Uuid,
         page: u32,
         per_page: u32,
+        status: Option<JobStatus>,
     ) -> Result<(Vec<ConversionJob>, u64), DynError> {
         let offset = (page.saturating_sub(1)) * per_page;
 
@@ -100,10 +101,12 @@ impl ConversionJobRepository for PgConversionJobRepository {
                 updated_at
             FROM conversion_jobs
             WHERE user_id = $1
+                AND ($2::text IS NULL OR status = $2)
             ORDER BY created_at DESC
-            LIMIT $2 OFFSET $3
+            LIMIT $3 OFFSET $4
             "#,
             user_id,
+            status as Option<JobStatus>,
             per_page as i64,
             offset as i64,
         )
@@ -111,8 +114,14 @@ impl ConversionJobRepository for PgConversionJobRepository {
         .await?;
 
         let total: i64 = sqlx::query_scalar!(
-            r#"SELECT COUNT(*) as "count!" FROM conversion_jobs WHERE user_id = $1"#,
+            r#"
+            SELECT COUNT(*) as "count!"
+            FROM conversion_jobs
+            WHERE user_id = $1
+                AND ($2::text IS NULL OR status = $2)
+            "#,
             user_id,
+            status as Option<JobStatus>,
         )
         .fetch_one(&self.pool)
         .await?;
