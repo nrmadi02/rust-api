@@ -79,6 +79,72 @@ impl ConversionService {
         Ok(UploadResult { job: saved_job })
     }
 
+    pub async fn list_my_conversion_jobs(
+        &self,
+        user_id: Uuid,
+        page: u32,
+        per_page: u32,
+        status: Option<JobStatus>,
+    ) -> Result<(Vec<ConversionJob>, u64), ApplicationError> {
+        let page = page.max(1);
+        let per_page = per_page.clamp(1, 100);
+
+        let result = self
+            .job_repo
+            .find_by_user(user_id, page, per_page, status)
+            .await?;
+
+        Ok(result)
+    }
+
+    pub async fn get_conversion_job_status(
+        &self,
+        job_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<ConversionJob, ApplicationError> {
+        let job = self
+            .job_repo
+            .find_by_id(job_id)
+            .await?
+            .ok_or(ApplicationError::JobNotFound)?;
+
+        if job.user_id != user_id {
+            return Err(ApplicationError::JobNotFound);
+        }
+
+        Ok(job)
+    }
+
+    pub async fn delete_draft_job(
+        &self,
+        job_id: Uuid,
+        user_id: Uuid,
+    ) -> Result<(), ApplicationError> {
+        let job = self
+            .job_repo
+            .find_by_id(job_id)
+            .await?
+            .ok_or(ApplicationError::JobNotFound)?;
+
+        if job.user_id != user_id {
+            return Err(ApplicationError::JobNotFound);
+        }
+
+        if job.status != JobStatus::Draft {
+            return Err(ApplicationError::JobNotDraft);
+        }
+
+        self.storage.delete_job_files(user_id, job_id).await?;
+        self.job_repo.delete_draft(job_id).await?;
+
+        let activity = ActivityLog::delete_job(user_id, job_id);
+        if let Err(err) = self.activity_log_repo.log_activity(&activity).await {
+            log::error!("Failed to log deletion for job {}: {}", job_id, err);
+        }
+
+        Ok(())
+    }
+
     pub async fn enqueue_conversion_job(
         &self,
         job_id: Uuid,
