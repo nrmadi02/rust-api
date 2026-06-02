@@ -90,11 +90,7 @@ impl StorageRepository for LocalStorageRepository {
     }
 
     fn output_relative_path(&self, job_id: Uuid, job_type: JobType) -> String {
-        format!(
-            "outputs/{}/{}",
-            job_id,
-            Self::output_filename(job_type)
-        )
+        format!("outputs/{}/{}", job_id, Self::output_filename(job_type))
     }
 
     async fn ensure_layout(&self) -> StorageResult<()> {
