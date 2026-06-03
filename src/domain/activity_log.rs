@@ -72,10 +72,17 @@ impl ActivityLog {
         self
     }
 
-    pub fn upload_file(user_id: Uuid, job_id: Uuid, file_name: &str, file_size: i64) -> Self {
+    pub fn upload_file(
+        user_id: Uuid,
+        job_id: Uuid,
+        file_name: &str,
+        file_size: i64,
+        page_count: usize,
+    ) -> Self {
         let metadata = serde_json::json!({
             "file_name": file_name,
             "file_size_bytes": file_size,
+            "page_count": page_count,
         });
 
         Self::new(
