@@ -4,12 +4,14 @@ use tower_governor::{
     GovernorLayer, governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor,
 };
 
-use axum::routing::post;
-use axum::{Router, routing::get};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
-use super::handlers::{auth, profile};
+use super::handlers::{auth, conversion, profile};
 use super::state::AppState;
 
 pub fn create_router() -> Router<AppState> {
@@ -30,7 +32,21 @@ pub fn create_router() -> Router<AppState> {
         .route("/", get(health::health_check))
         .merge(auth_routes);
 
-    let protected = Router::new().route("/api/profile/me", get(profile::me));
+    let protected = Router::new()
+        .route("/api/profile/me", get(profile::me))
+        .route(
+            "/api/v1/convert/pdf-to-word",
+            post(conversion::upload_pdf_to_word),
+        )
+        .route("/api/v1/convert/jobs", get(conversion::list_jobs))
+        .route(
+            "/api/v1/convert/jobs/{id}",
+            get(conversion::get_job).delete(conversion::delete_job),
+        )
+        .route(
+            "/api/v1/convert/jobs/{id}/download",
+            get(conversion::download_job),
+        );
 
     let doc = Scalar::with_url("/scalar", ApiDoc::openapi());
 

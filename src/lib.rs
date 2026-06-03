@@ -11,11 +11,16 @@ use config::env::Config;
 use std::net::SocketAddr;
 
 use self::application::auth::AuthService;
+use self::application::conversion::ConversionService;
 use self::application::jwt::JwtService;
 use self::application::login_attempt::LoginAttemptService;
 use self::domain::storage::StorageRepository;
+use self::infrastructure::activity_log_repository::PgActivityLogRepository;
+use self::infrastructure::conversion_job_repository::PgConversionJobRepository;
 use self::infrastructure::local_storage_repository::LocalStorageRepository;
 use self::infrastructure::login_attempt_repository::PgLoginAttemptRepository;
+use self::infrastructure::pdf_validator::LopPdfValidator;
+use self::infrastructure::unoserver_client::UnoserverClient;
 use self::infrastructure::user_repository::PgUserRepository;
 use self::presentation::state::AppState;
 
@@ -50,10 +55,23 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         login_attempt_service,
         jwt_service.clone(),
     ));
+    let conversion_service = Arc::new(ConversionService::new(
+        Arc::new(PgConversionJobRepository::new(pool.clone())),
+        Arc::new(PgActivityLogRepository::new(pool.clone())),
+        storage,
+        Arc::new(LopPdfValidator::new(config.max_upload_size_mb)),
+        Arc::new(UnoserverClient::new(
+            config.uno_server_host,
+            config.uno_server_port,
+            config.uno_server_timeout_secs,
+        )),
+        config.storage_base_path.into(),
+    ));
 
     let state = AppState {
         auth_service,
         jwt_service,
+        conversion_service,
     };
 
     let app = build_router().with_state(state);
