@@ -22,7 +22,15 @@ impl ConversionJobRepository for PgConversionJobRepository {
         let row = sqlx::query_as!(
             ConversionJob,
             r#"
-            INSERT INTO conversion_jobs (id, user_id, job_type, status, input_file, output_file, error_message)
+            INSERT INTO conversion_jobs (
+                id,
+                user_id,
+                job_type,
+                status,
+                input_file,
+                output_file,
+                error_message
+            )
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING
                 id,
@@ -101,7 +109,7 @@ impl ConversionJobRepository for PgConversionJobRepository {
                 updated_at
             FROM conversion_jobs
             WHERE user_id = $1
-                AND ($2::text IS NULL OR status = $2)
+              AND ($2::text IS NULL OR status = $2)
             ORDER BY created_at DESC
             LIMIT $3 OFFSET $4
             "#,
@@ -174,7 +182,11 @@ impl ConversionJobRepository for PgConversionJobRepository {
 
     async fn delete_draft(&self, id: Uuid) -> Result<(), DynError> {
         let result = sqlx::query!(
-            r#"DELETE FROM conversion_jobs WHERE id = $1 AND status = 'draft'"#,
+            r#"
+            DELETE FROM conversion_jobs
+            WHERE id = $1
+                AND status = 'draft'
+            "#,
             id,
         )
         .execute(&self.pool)

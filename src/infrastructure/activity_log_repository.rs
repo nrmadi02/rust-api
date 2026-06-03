@@ -21,7 +21,16 @@ impl ActivityLogRepository for PgActivityLogRepository {
     async fn log_activity(&self, log: &ActivityLog) -> Result<(), DynError> {
         sqlx::query!(
             r#"
-            INSERT INTO activity_logs (id, user_id, action, resource_type, resource_id, ip_address, user_agent, metadata)
+            INSERT INTO activity_logs (
+                id,
+                user_id,
+                action,
+                resource_type,
+                resource_id,
+                ip_address,
+                user_agent,
+                metadata
+            )
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             "#,
             log.id,
@@ -62,7 +71,8 @@ impl ActivityLogRepository for PgActivityLogRepository {
                 metadata,
                 created_at
             FROM activity_logs
-            WHERE user_id = $1 AND ($2::text IS NULL OR action = $2)
+            WHERE user_id = $1
+                AND ($2::text IS NULL OR action = $2)
             ORDER BY created_at DESC
             LIMIT $3 OFFSET $4
             "#,
@@ -75,7 +85,12 @@ impl ActivityLogRepository for PgActivityLogRepository {
         .await?;
 
         let total: i64 = sqlx::query_scalar!(
-            r#"SELECT COUNT(*) as "count!" FROM activity_logs WHERE user_id = $1 AND ($2::text IS NULL OR action = $2)"#,
+            r#"
+            SELECT COUNT(*) as "count!"
+            FROM activity_logs
+            WHERE user_id = $1
+                AND ($2::text IS NULL OR action = $2)
+            "#,
             user_id,
             action,
         )

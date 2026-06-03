@@ -24,6 +24,7 @@ impl PdfValidator for LopPdfValidator {
 
         let file_size_bytes = bytes.len() as u64;
         let max_bytes = self.max_upload_bytes();
+
         if file_size_bytes > max_bytes {
             return Err(PdfValidationError::FileTooLarge {
                 max_mb: self.max_upload_size_mb,
@@ -35,18 +36,13 @@ impl PdfValidator for LopPdfValidator {
             return Err(PdfValidationError::InvalidMagicBytes);
         }
 
-        let (page_count, is_encrypted) =
-            inspect_pdf(bytes).map_err(|_| PdfValidationError::CorruptOrUnreadable)?;
+        let pdf_info = inspect_pdf(bytes).map_err(|_| PdfValidationError::CorruptOrUnreadable)?;
 
-        if is_encrypted {
+        if pdf_info.is_encrypted {
             return Err(PdfValidationError::PasswordProtected);
         }
 
-        Ok(PdfInfo {
-            page_count,
-            file_size_bytes,
-            is_encrypted,
-        })
+        Ok(pdf_info)
     }
 }
 
@@ -54,9 +50,12 @@ fn has_pdf_magic(bytes: &[u8]) -> bool {
     bytes.starts_with(b"%PDF")
 }
 
-fn inspect_pdf(bytes: &[u8]) -> Result<(usize, bool), lopdf::Error> {
+fn inspect_pdf(bytes: &[u8]) -> Result<PdfInfo, lopdf::Error> {
     let doc = Document::load_mem(bytes)?;
-    let page_count = doc.get_pages().len();
-    let is_encrypted = doc.is_encrypted();
-    Ok((page_count, is_encrypted))
+
+    Ok(PdfInfo {
+        page_count: doc.get_pages().len(),
+        file_size_bytes: bytes.len() as u64,
+        is_encrypted: doc.is_encrypted(),
+    })
 }
