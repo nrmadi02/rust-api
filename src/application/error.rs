@@ -27,6 +27,8 @@ pub enum ApplicationError {
     JobNotFound,
     #[error("job is not in draft status")]
     JobNotDraft,
+    #[error("job is not done yet")]
+    JobNotDone,
 }
 
 #[derive(Debug)]
