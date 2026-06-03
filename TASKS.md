@@ -137,7 +137,7 @@
   - Hapus job yang masih berstatus Draft
   - Hapus file upload dari storage
   - Validasi ownership
-- **Use Case: `DownloadConvertedFile`**
+- **Use Case: `DownloadConvertedFile`** ✅ SELESAI
   - Validasi job sudah berstatus `Done`
   - Validasi ownership
   - Return file stream / presigned URL
@@ -147,66 +147,64 @@
 
 ### 🗄️ 1.4 — Infrastructure Layer
 
-- `**ConversionJobRepositoryImpl**` — implementasi SQLx query untuk semua method repository
-- `**ActivityLogRepositoryImpl**` — implementasi SQLx query untuk activity log
-- `**UnoserverClient**` — wrapper `tokio::process` untuk `unoconvert` binary
-  - Method: `async fn convert(input_bytes: Bytes, format: ConvertFormat) -> Result<Bytes, ConvertError>`
-  - Kirim file via **stdin**, terima hasil via **stdout** (tidak perlu tulis file ke disk dulu):
+- `**PgConversionJobRepository**` — implementasi SQLx query untuk semua method repository ✅ SELESAI
+  - `create_job()`, `find_by_id()`, `find_by_user()` (pagination + filter status), `update_status()`, `delete_draft()`
+- `**PgActivityLogRepository**` — implementasi SQLx query untuk activity log ✅ SELESAI
+  - `log_activity()`, `find_by_user()` (pagination + filter action)
+- `**UnoserverClient**` — wrapper `tokio::process` untuk `unoconvert` CLI binary ✅ SELESAI
+  - Enum `ConvertFormat` (`Docx`, `Pdf`) dengan method `as_str()`, `input_filter()`, `from_job_type()`
+  - Enum `ConvertError` dengan variant: `Spawn`, `MissingStdin`, `WriteStdin`, `Wait`, `Timeout`, `ProcessFailed`
+  - Method publik: `async fn convert(input_bytes: Bytes, format: ConvertFormat) -> Result<Bytes, ConvertError>`
+  - Kirim file via **stdin**, terima hasil via **stdout** — tidak perlu mount file ke container:
     ```rust
-    // Contoh implementasi
     let mut child = Command::new("unoconvert")
-        .args([
-            "--host", &cfg.host,
-            "--port", &cfg.port,
-            "--convert-to", format.as_str(),
-            "--input-filter", format.input_filter(),
-            "-", "-",  // stdin → stdout
-        ])
+        .args(["--host", &host, "--port", &port, "--convert-to", format.as_str()])
+        // --input-filter hanya dikirim jika relevan (misal: writer_pdf_import untuk PDF→DOCX)
+        .args(["-", "-"])          // stdin → stdout
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .kill_on_drop(true)
         .spawn()?;
-
-    // Tulis input bytes ke stdin
-    child.stdin.take().unwrap().write_all(&input_bytes).await?;
-
-    // Baca output bytes dari stdout
+    child.stdin.take()?.write_all(&input_bytes).await?;
     let output = child.wait_with_output().await?;
     ```
-  - Timeout: `tokio::time::timeout(Duration::from_secs(cfg.timeout_secs), ...)`
-  - Retry: 1x retry otomatis jika exit code non-zero
-  - Log durasi ke `conversion_jobs.duration_ms`
-- `**PdfValidatorService**` — validasi file sebelum konversi
+  - `**--input-filter**` dikirim otomatis berdasarkan format (PDF→DOCX: `writer_pdf_import`)
+  - **Timeout**: `tokio::time::timeout(Duration::from_secs(timeout_secs), ...)` → error `ConvertError::Timeout`
+  - **Retry**: 1x retry otomatis jika konversi pertama gagal, dengan log warning
+  - `**kill_on_drop(true)`**: child process otomatis di-kill jika future di-drop (misal timeout)
+  - Implementasi trait `UnoConverter`: baca dari disk → convert → tulis ke disk
+- `**LopPdfValidator`** — validasi file sebelum konversi ✅ SELESAI
   - Cek magic bytes: pastikan header `%PDF` (bukan hanya ekstensi)
   - Cek ukuran ≤ `MAX_UPLOAD_SIZE_MB`
-  - Estimasi jumlah halaman via `lopdf` untuk logging
-- `**ConversionWorker**` — Tokio async background worker
-  - Spawn task saat `EnqueueConversionJob` dipanggil
+  - Hitung jumlah halaman & deteksi enkripsi via `lopdf`
+- `**ConversionWorker**` *(inline di Application Layer)* — Tokio async background worker ✅ SELESAI
+  - Spawn task saat `EnqueueConversionJob` dipanggil via `tokio::spawn`
   - Flow: `queued → processing → done / failed`
   - Update status & `duration_ms` di DB setelah selesai
-  - Handle panic dengan `tokio::task::spawn` + error catch
+  - Error di-log, status di-update ke `Failed` + simpan `error_message`
 
 ---
 
 ### 🌐 1.5 — Presentation Layer (Handlers & Routes)
 
-- **DTO: `UploadFileRequest`** — multipart form (file)
-- **DTO: `ConversionJobResponse`** — response job detail (id, status, download_url, created_at)
-- **DTO: `ListJobsResponse`** — paginated list of jobs
-- **Handler: `POST /api/v1/convert/pdf-to-word`**
+- **DTO:** `UploadFileRequest` — multipart form (file) ✅ SELESAI
+- **DTO:** `ConversionJobResponse` — response job detail (id, status, download_url, created_at) ✅ SELESAI
+- **DTO:** `ListJobsResponse` — paginated list of jobs ✅ SELESAI
+- **Handler: `POST /api/v1/convert/pdf-to-word*`* ✅ SELESAI
   - Terima upload multipart
   - Panggil use case `UploadAndConvertPdfToWord`
   - Return `ConversionJobResponse`
-- **Handler: `GET /api/v1/convert/jobs`**
+- **Handler: `GET /api/v1/convert/jobs`** ✅ SELESAI
   - List semua job milik user yang login
   - Query params: `page`, `per_page`, `status`
-- **Handler: `GET /api/v1/convert/jobs/:id`**
+- **Handler: `GET /api/v1/convert/jobs/:id`** ✅ SELESAI
   - Ambil detail & status satu job
-- **Handler: `GET /api/v1/convert/jobs/:id/download`**
+- **Handler: `GET /api/v1/convert/jobs/:id/download`** ✅ SELESAI
   - Download file hasil konversi
-- **Handler: `DELETE /api/v1/convert/jobs/:id`**
+- **Handler: `DELETE /api/v1/convert/jobs/:id`** ✅ SELESAI
   - Hapus job (hanya jika Draft)
-- **Daftarkan routes ke router** dengan auth guard middleware
+- **Daftarkan routes ke router** dengan auth guard middleware ✅ SELESAI
 
 ---
 
