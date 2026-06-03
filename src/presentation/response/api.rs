@@ -8,7 +8,7 @@ pub struct ApiResponse<T> {
     pub data: T,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PaginationMeta {
     pub page: u32,
     pub per_page: u32,
@@ -18,7 +18,7 @@ pub struct PaginationMeta {
     pub has_prev: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PaginatedData<T> {
     pub items: Vec<T>,
     pub pagination: PaginationMeta,

@@ -146,6 +146,11 @@ impl From<ApplicationError> for AppError {
                 "JOB_NOT_DRAFT",
                 "Job is not in draft status",
             ),
+            ApplicationError::JobNotDone => AppError::custom(
+                StatusCode::BAD_REQUEST,
+                "JOB_NOT_DONE",
+                "Job is not done yet",
+            ),
         }
     }
 }
