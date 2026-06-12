@@ -59,3 +59,60 @@ fn inspect_pdf(bytes: &[u8]) -> Result<PdfInfo, lopdf::Error> {
         is_encrypted: doc.is_encrypted(),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::pdf_validator::PdfValidationError;
+    use lopdf::{dictionary, Document, Object};
+
+    fn minimal_pdf() -> Vec<u8> {
+        let mut doc = Document::with_version("1.5");
+        let pages_id = doc.new_object_id();
+        let page_id = doc.add_object(dictionary! {
+            "Type" => "Page",
+            "Parent" => pages_id,
+            "MediaBox" => vec![0.into(), 0.into(), 200.into(), 200.into()],
+        });
+        let pages = dictionary! {
+            "Type" => "Pages",
+            "Kids" => vec![Object::Reference(page_id)],
+            "Count" => 1,
+        };
+        doc.objects.insert(pages_id, Object::Dictionary(pages));
+        let catalog_id = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => pages_id,
+        });
+        doc.trailer.set("Root", catalog_id);
+
+        let mut buffer = Vec::new();
+        doc.save_to(&mut buffer).expect("serialize pdf");
+        buffer
+    }
+
+    #[test]
+    fn accepts_valid_pdf() {
+        let validator = LopPdfValidator::new(50);
+        let info = validator.validate(&minimal_pdf()).expect("valid pdf");
+        assert!(info.page_count >= 1);
+    }
+
+    #[test]
+    fn rejects_invalid_magic_bytes() {
+        let validator = LopPdfValidator::new(50);
+        let err = validator
+            .validate(b"hello")
+            .expect_err("non-pdf should fail");
+        assert_eq!(err, PdfValidationError::InvalidMagicBytes);
+    }
+
+    #[test]
+    fn rejects_corrupt_pdf() {
+        let validator = LopPdfValidator::new(50);
+        let err = validator
+            .validate(b"%PDF-1.4\nbroken")
+            .expect_err("corrupt pdf should fail");
+        assert_eq!(err, PdfValidationError::CorruptOrUnreadable);
+    }
+}
