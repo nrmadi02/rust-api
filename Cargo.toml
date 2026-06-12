@@ -33,3 +33,11 @@ bytes = "1"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
+http = "1"
+mime = "0.3"
+lopdf = "0.40.0"
+sqlx = { version = "0.9.0", features = ["runtime-tokio", "tls-native-tls", "postgres", "uuid", "chrono", "migrate"] }
+chrono = { version = "0.4", features = ["serde"] }

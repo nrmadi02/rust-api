@@ -4,3 +4,6 @@
 .env
 openspec/
 .opencode/
+
+storage/outputs/
+storage/uploads/
