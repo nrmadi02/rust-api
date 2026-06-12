@@ -180,6 +180,11 @@ impl ConversionService {
             .update_status(job.id, JobStatus::Queued, None, None, None)
             .await?;
 
+        let activity = ActivityLog::confirm_job(user_id, job_id);
+        if let Err(err) = self.activity_log_repo.log_activity(&activity).await {
+            log::error!("Failed to log confirm for job {}: {}", job_id, err);
+        }
+
         let worker = ConversionWorker::new(
             self.job_repo.clone(),
             self.storage.clone(),

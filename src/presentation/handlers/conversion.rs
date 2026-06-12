@@ -1,5 +1,6 @@
 use axum::Json;
 use axum::body::Body;
+use axum::extract::rejection::QueryRejection;
 use axum::extract::{Multipart, Path, Query, State};
 use axum::http::header::{CONTENT_DISPOSITION, CONTENT_TYPE};
 use axum::http::{Response, StatusCode};
@@ -67,8 +68,11 @@ pub async fn upload_pdf_to_word(
 pub async fn list_jobs(
     auth: AuthUser,
     State(state): State<AppState>,
-    Query(query): Query<ListJobsQuery>,
+    query: Result<Query<ListJobsQuery>, QueryRejection>,
 ) -> Result<Json<ApiResponse<ListJobsResponse>>, AppError> {
+    let Query(query) = query.map_err(|err| {
+        AppError::custom(StatusCode::BAD_REQUEST, "INVALID_QUERY", err.to_string())
+    })?;
     let page = query.page.unwrap_or(1).max(1);
     let per_page = query.per_page.unwrap_or(10).clamp(1, 100);
 
@@ -161,6 +165,43 @@ pub async fn download_job(
         )
         .body(Body::from(file.bytes))
         .map_err(|_| AppError::InternalServerError)
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/v1/convert/jobs/{id}/confirm",
+    tag = "Conversion",
+    security(
+        ("bearerAuth" = []),
+    ),
+    params(
+        ("id" = Uuid, Path, description = "Conversion job id"),
+    ),
+    responses(
+        (status = 202, description = "Draft job confirmed and conversion queued", body = inline(ApiResponse<ConversionJobResponse>)),
+        (status = 400, description = "Job is not in draft status"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Job not found"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
+pub async fn confirm_job(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    Path(id): Path<Uuid>,
+) -> Result<impl IntoResponse, AppError> {
+    let job = state
+        .conversion_service
+        .enqueue_conversion_job(id, auth.user_id)
+        .await?;
+
+    let body = ApiResponse::success(
+        true,
+        "Conversion job confirmed and queued".to_string(),
+        ConversionJobResponse::from(job),
+    );
+
+    Ok((StatusCode::ACCEPTED, Json(body)))
 }
 
 #[utoipa::path(

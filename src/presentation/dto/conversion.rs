@@ -11,9 +11,11 @@ pub struct UploadFileRequest {
 }
 
 #[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct ListJobsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
+    #[param(example = "draft")]
     pub status: Option<JobStatus>,
 }
 
