@@ -11,7 +11,7 @@ use axum::{
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable};
 
-use super::handlers::{auth, conversion, profile};
+use super::handlers::{activity_log, auth, conversion, profile};
 use super::state::AppState;
 
 pub fn create_router() -> Router<AppState> {
@@ -35,6 +35,10 @@ pub fn create_router() -> Router<AppState> {
     let protected = Router::new()
         .route("/api/profile/me", get(profile::me))
         .route(
+            "/api/v1/me/activity-logs",
+            get(activity_log::list_activity_logs),
+        )
+        .route(
             "/api/v1/convert/pdf-to-word",
             post(conversion::upload_pdf_to_word),
         )
@@ -46,6 +50,10 @@ pub fn create_router() -> Router<AppState> {
         .route(
             "/api/v1/convert/jobs/{id}/download",
             get(conversion::download_job),
+        )
+        .route(
+            "/api/v1/convert/jobs/{id}/confirm",
+            post(conversion::confirm_job),
         );
 
     let doc = Scalar::with_url("/scalar", ApiDoc::openapi());

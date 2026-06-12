@@ -2,9 +2,10 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 use sqlx::FromRow;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
 #[sqlx(type_name = "text", rename_all = "snake_case")]
 pub enum ResourceType {
     ConversionJob,
@@ -112,6 +113,15 @@ impl ActivityLog {
         Self::new(
             user_id,
             "delete_job",
+            Some(ResourceType::ConversionJob),
+            Some(job_id),
+        )
+    }
+
+    pub fn confirm_job(user_id: Uuid, job_id: Uuid) -> Self {
+        Self::new(
+            user_id,
+            "confirm_job",
             Some(ResourceType::ConversionJob),
             Some(job_id),
         )

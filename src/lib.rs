@@ -10,6 +10,7 @@ use axum::Router;
 use config::env::Config;
 use std::net::SocketAddr;
 
+use self::application::activity_log::ActivityLogService;
 use self::application::auth::AuthService;
 use self::application::conversion::ConversionService;
 use self::application::jwt::JwtService;
@@ -55,9 +56,10 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         login_attempt_service,
         jwt_service.clone(),
     ));
+    let activity_log_repo = Arc::new(PgActivityLogRepository::new(pool.clone()));
     let conversion_service = Arc::new(ConversionService::new(
         Arc::new(PgConversionJobRepository::new(pool.clone())),
-        Arc::new(PgActivityLogRepository::new(pool.clone())),
+        activity_log_repo.clone(),
         storage,
         Arc::new(LopPdfValidator::new(config.max_upload_size_mb)),
         Arc::new(UnoserverClient::new(
@@ -67,11 +69,13 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         )),
         config.storage_base_path.into(),
     ));
+    let activity_log_service = Arc::new(ActivityLogService::new(activity_log_repo));
 
     let state = AppState {
         auth_service,
         jwt_service,
         conversion_service,
+        activity_log_service,
     };
 
     let app = build_router().with_state(state);
