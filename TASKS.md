@@ -178,7 +178,7 @@
   - Cek magic bytes: pastikan header `%PDF` (bukan hanya ekstensi)
   - Cek ukuran ≤ `MAX_UPLOAD_SIZE_MB`
   - Hitung jumlah halaman & deteksi enkripsi via `lopdf`
-- `**ConversionWorker**` *(inline di Application Layer)* — Tokio async background worker ✅ SELESAI
+- `**ConversionWorker`** *(inline di Application Layer)* — Tokio async background worker ✅ SELESAI
   - Spawn task saat `EnqueueConversionJob` dipanggil via `tokio::spawn`
   - Flow: `queued → processing → done / failed`
   - Update status & `duration_ms` di DB setelah selesai
@@ -191,7 +191,7 @@
 - **DTO:** `UploadFileRequest` — multipart form (file) ✅ SELESAI
 - **DTO:** `ConversionJobResponse` — response job detail (id, status, download_url, created_at) ✅ SELESAI
 - **DTO:** `ListJobsResponse` — paginated list of jobs ✅ SELESAI
-- **Handler: `POST /api/v1/convert/pdf-to-word*`* ✅ SELESAI
+- **Handler: `POST /api/v1/convert/pdf-to-word`** ✅ SELESAI
   - Terima upload multipart
   - Panggil use case `UploadAndConvertPdfToWord`
   - Return `ConversionJobResponse`
@@ -208,7 +208,7 @@
 
 ---
 
-### 📊 1.6 — Activity Logs Endpoint
+### 📊 1.6 — Activity Logs Endpoint ✅ SELESAI
 
 - **Handler: `GET /api/v1/me/activity-logs`**
   - Ambil history aktivitas user yang sedang login
@@ -217,7 +217,7 @@
 
 ---
 
-### 📝 1.7 — Draft System
+### 📝 1.7 — Draft System ✅ SELESAI
 
 - **Flow Draft**: Upload file → simpan sebagai `Draft` → user konfirmasi → mulai konversi
   - Ini memungkinkan user membatalkan sebelum proses dimulai
@@ -228,7 +228,7 @@
 
 ---
 
-### 🧪 1.8 — Testing
+### 🧪 1.8 — Testing ✅ SELESAI
 
 - **Unit Test: `PdfConverterService`**
   - Test konversi file PDF valid → DOCX
@@ -250,12 +250,12 @@
 
 ---
 
-### 📄 1.9 — Dokumentasi & Finalisasi MVP 1
+### 📄 1.9 — Dokumentasi & Finalisasi MVP 1 ✅ SELESAI
 
-- Update `README.md` dengan cara setup & run
-- Buat `docs/api-guide.md` — panduan penggunaan API konversi
-- Review error handling — pastikan semua error return format yang konsisten
-- Code review & refactor jika perlu
+- Update `README.md` dengan cara setup & run ✅
+- Buat `docs/api-guide.md` — panduan penggunaan API konversi ✅
+- Review error handling — pastikan semua error return format yang konsisten ✅
+- Code review & refactor jika perlu ✅
 
 ---
 
