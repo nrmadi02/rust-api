@@ -41,6 +41,16 @@ pub enum JobStatus {
 }
 
 impl JobStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            JobStatus::Draft => "draft",
+            JobStatus::Processing => "processing",
+            JobStatus::Queued => "queued",
+            JobStatus::Done => "done",
+            JobStatus::Failed => "failed",
+        }
+    }
+
     pub fn is_terminal(&self) -> bool {
         matches!(self, JobStatus::Done | JobStatus::Failed)
     }

@@ -8,17 +8,17 @@ use crate::application::error::ApplicationError;
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("internal server error")]
+    #[error("An unexpected error occurred")]
     InternalServerError,
-    #[error("not found")]
+    #[error("Resource not found")]
     NotFound,
-    #[error("bad request")]
+    #[error("Bad request")]
     BadRequest,
-    #[error("unauthorized")]
+    #[error("Authentication required")]
     Unauthorized,
-    #[error("forbidden")]
+    #[error("Access forbidden")]
     Forbidden,
-    #[error("validation failed")]
+    #[error("Validation failed")]
     Validation(Vec<String>),
     #[error("{message}")]
     Custom {
@@ -38,18 +38,19 @@ impl AppError {
     }
 }
 
-#[derive(Debug, Serialize)]
-struct ErrorBody {
-    success: bool,
-    error: ErrorDetail,
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct ErrorResponse {
+    pub success: bool,
+    pub error: ErrorDetail,
 }
-#[derive(Debug, Serialize)]
-struct ErrorDetail {
-    code: &'static str,
-    message: String,
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct ErrorDetail {
+    pub code: String,
+    pub message: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    details: Option<Vec<String>>,
+    pub details: Option<Vec<String>>,
 }
 
 impl AppError {
@@ -88,10 +89,10 @@ impl IntoResponse for AppError {
             _ => None,
         };
 
-        let body = ErrorBody {
+        let body = ErrorResponse {
             success: false,
             error: ErrorDetail {
-                code,
+                code: code.to_string(),
                 message,
                 details,
             },
@@ -152,5 +153,44 @@ impl From<ApplicationError> for AppError {
                 "Job is not done yet",
             ),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::response::IntoResponse;
+    use http_body_util::BodyExt;
+
+    async fn body_to_json(body: Body) -> serde_json::Value {
+        let bytes = body.collect().await.expect("body bytes").to_bytes();
+        serde_json::from_slice(&bytes).expect("valid json body")
+    }
+
+    #[tokio::test]
+    async fn error_response_has_consistent_shape() {
+        let response = AppError::custom(
+            StatusCode::BAD_REQUEST,
+            "INVALID_FILE",
+            "Not a valid PDF file",
+        )
+        .into_response();
+
+        let json = body_to_json(response.into_body()).await;
+        assert_eq!(json["success"], false);
+        assert_eq!(json["error"]["code"], "INVALID_FILE");
+        assert_eq!(json["error"]["message"], "Not a valid PDF file");
+        assert!(json["error"].get("details").is_none());
+    }
+
+    #[tokio::test]
+    async fn validation_error_includes_details() {
+        let response = AppError::Validation(vec!["Email is required".into()]).into_response();
+
+        let json = body_to_json(response.into_body()).await;
+        assert_eq!(json["success"], false);
+        assert_eq!(json["error"]["code"], "VALIDATION_ERROR");
+        assert_eq!(json["error"]["details"][0], "Email is required");
     }
 }

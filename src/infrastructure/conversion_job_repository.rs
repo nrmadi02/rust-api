@@ -93,46 +93,93 @@ impl ConversionJobRepository for PgConversionJobRepository {
     ) -> Result<(Vec<ConversionJob>, u64), DynError> {
         let offset = (page.saturating_sub(1)) * per_page;
 
-        let items = sqlx::query_as!(
-            ConversionJob,
-            r#"
-            SELECT
-                id,
-                user_id,
-                job_type as "job_type: JobType",
-                status as "status: JobStatus",
-                input_file,
-                output_file,
-                error_message,
-                duration_ms,
-                created_at,
-                updated_at
-            FROM conversion_jobs
-            WHERE user_id = $1
-              AND ($2::text IS NULL OR status = $2)
-            ORDER BY created_at DESC
-            LIMIT $3 OFFSET $4
-            "#,
-            user_id,
-            status as Option<JobStatus>,
-            per_page as i64,
-            offset as i64,
-        )
-        .fetch_all(&self.pool)
-        .await?;
+        let (items, total) = match status {
+            None => {
+                let items = sqlx::query_as!(
+                    ConversionJob,
+                    r#"
+                    SELECT
+                        id,
+                        user_id,
+                        job_type as "job_type: JobType",
+                        status as "status: JobStatus",
+                        input_file,
+                        output_file,
+                        error_message,
+                        duration_ms,
+                        created_at,
+                        updated_at
+                    FROM conversion_jobs
+                    WHERE user_id = $1
+                    ORDER BY created_at DESC
+                    LIMIT $2 OFFSET $3
+                    "#,
+                    user_id,
+                    per_page as i64,
+                    offset as i64,
+                )
+                .fetch_all(&self.pool)
+                .await?;
 
-        let total: i64 = sqlx::query_scalar!(
-            r#"
-            SELECT COUNT(*) as "count!"
-            FROM conversion_jobs
-            WHERE user_id = $1
-                AND ($2::text IS NULL OR status = $2)
-            "#,
-            user_id,
-            status as Option<JobStatus>,
-        )
-        .fetch_one(&self.pool)
-        .await?;
+                let total: i64 = sqlx::query_scalar!(
+                    r#"
+                    SELECT COUNT(*) as "count!"
+                    FROM conversion_jobs
+                    WHERE user_id = $1
+                    "#,
+                    user_id,
+                )
+                .fetch_one(&self.pool)
+                .await?;
+
+                (items, total)
+            }
+            Some(status) => {
+                let status = status.as_str();
+                let items = sqlx::query_as!(
+                    ConversionJob,
+                    r#"
+                    SELECT
+                        id,
+                        user_id,
+                        job_type as "job_type: JobType",
+                        status as "status: JobStatus",
+                        input_file,
+                        output_file,
+                        error_message,
+                        duration_ms,
+                        created_at,
+                        updated_at
+                    FROM conversion_jobs
+                    WHERE user_id = $1
+                      AND status = $2
+                    ORDER BY created_at DESC
+                    LIMIT $3 OFFSET $4
+                    "#,
+                    user_id,
+                    status,
+                    per_page as i64,
+                    offset as i64,
+                )
+                .fetch_all(&self.pool)
+                .await?;
+
+                let total: i64 = sqlx::query_scalar!(
+                    r#"
+                    SELECT COUNT(*) as "count!"
+                    FROM conversion_jobs
+                    WHERE user_id = $1
+                      AND status = $2
+                    "#,
+                    user_id,
+                    status,
+                )
+                .fetch_one(&self.pool)
+                .await?;
+
+                (items, total)
+            }
+        };
 
         Ok((items, total as u64))
     }
