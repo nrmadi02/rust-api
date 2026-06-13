@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::domain::pdf_validator::PdfValidationError;
 use crate::domain::storage::StorageError;
+use crate::domain::word_validator::WordValidationError;
 
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -72,5 +73,22 @@ impl From<PdfValidationError> for ApplicationError {
 impl From<StorageError> for ApplicationError {
     fn from(err: StorageError) -> Self {
         ApplicationError::StorageError(format!("{:?}", err))
+    }
+}
+
+impl From<WordValidationError> for ApplicationError {
+    fn from(err: WordValidationError) -> Self {
+        use WordValidationError::*;
+        match err {
+            EmptyFile => ApplicationError::InvalidFile("File is empty".into()),
+            FileTooLarge {
+                max_mb,
+                actual_bytes,
+            } => ApplicationError::InvalidFile(format!(
+                "File too large (max {}MB, got {} bytes)",
+                max_mb, actual_bytes
+            )),
+            InvalidFormat => ApplicationError::InvalidFile("Not a valid Word file".into()),
+        }
     }
 }

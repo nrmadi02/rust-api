@@ -9,6 +9,7 @@ use crate::domain::conversion_job::{
 };
 use crate::domain::pdf_validator::PdfValidator;
 use crate::domain::storage::StorageRepository;
+use crate::domain::word_validator::WordValidator;
 use std::path::PathBuf;
 
 use crate::application::conversion_worker::ConversionWorker;
@@ -30,6 +31,7 @@ pub struct ConversionService {
     activity_log_repo: Arc<dyn ActivityLogRepository>,
     storage: Arc<dyn StorageRepository>,
     pdf_validator: Arc<dyn PdfValidator>,
+    word_validator: Arc<dyn WordValidator>,
     uno_converter: Arc<dyn UnoConverter>,
     storage_base_path: PathBuf,
 }
@@ -40,6 +42,7 @@ impl ConversionService {
         activity_log_repo: Arc<dyn ActivityLogRepository>,
         storage: Arc<dyn StorageRepository>,
         pdf_validator: Arc<dyn PdfValidator>,
+        word_validator: Arc<dyn WordValidator>,
         uno_converter: Arc<dyn UnoConverter>,
         storage_base_path: PathBuf,
     ) -> Self {
@@ -48,6 +51,7 @@ impl ConversionService {
             activity_log_repo,
             storage,
             pdf_validator,
+            word_validator,
             uno_converter,
             storage_base_path,
         }
@@ -71,10 +75,12 @@ impl ConversionService {
         }
         let pdf_info = self.pdf_validator.validate(file_bytes)?;
         let job_id = Uuid::new_v4();
-        let input_path = self.storage.input_relative_path(user_id, job_id);
+        let input_path = self
+            .storage
+            .input_relative_path(user_id, job_id, &extension);
         let job = ConversionJob::new_with_id(job_id, user_id, JobType::PdfToWord, input_path);
         self.storage
-            .save_input(user_id, job_id, JobType::PdfToWord, file_bytes)
+            .save_input(user_id, job_id, JobType::PdfToWord, &extension, file_bytes)
             .await?;
         let saved_job = self.job_repo.create_job(&job).await?;
 
@@ -84,6 +90,43 @@ impl ConversionService {
             original_filename,
             pdf_info.file_size_bytes as i64,
             pdf_info.page_count,
+        );
+        self.activity_log_repo.log_activity(&activity).await?;
+        Ok(UploadResult { job: saved_job })
+    }
+
+    pub async fn upload_word_to_pdf(
+        &self,
+        user_id: Uuid,
+        file_bytes: &[u8],
+        original_filename: &str,
+    ) -> Result<UploadResult, ApplicationError> {
+        let extension = original_filename
+            .rsplit('.')
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
+        if !matches!(extension.as_str(), "doc" | "docx") {
+            return Err(ApplicationError::InvalidFile(
+                "Only DOC/DOCX files are accepted".into(),
+            ));
+        }
+        let word_info = self.word_validator.validate(file_bytes, &extension)?;
+        let job_id = Uuid::new_v4();
+        let input_path = self
+            .storage
+            .input_relative_path(user_id, job_id, &extension);
+        let job = ConversionJob::new_with_id(job_id, user_id, JobType::WordToPdf, input_path);
+        self.storage
+            .save_input(user_id, job_id, JobType::WordToPdf, &extension, file_bytes)
+            .await?;
+        let saved_job = self.job_repo.create_job(&job).await?;
+
+        let activity = ActivityLog::upload_word_file(
+            user_id,
+            saved_job.id,
+            original_filename,
+            word_info.file_size_bytes as i64,
         );
         self.activity_log_repo.log_activity(&activity).await?;
         Ok(UploadResult { job: saved_job })
