@@ -11,6 +11,7 @@ use task_tools::application::conversion::ConversionService;
 use task_tools::application::jwt::JwtService;
 use task_tools::application::login_attempt::LoginAttemptService;
 use task_tools::application::password::hash_password;
+use task_tools::build_router;
 use task_tools::domain::storage::StorageRepository;
 use task_tools::domain::user::UserRepository;
 use task_tools::infrastructure::activity_log_repository::PgActivityLogRepository;
@@ -20,8 +21,8 @@ use task_tools::infrastructure::login_attempt_repository::PgLoginAttemptReposito
 use task_tools::infrastructure::pdf_validator::LopPdfValidator;
 use task_tools::infrastructure::unoserver_client::UnoserverClient;
 use task_tools::infrastructure::user_repository::PgUserRepository;
+use task_tools::infrastructure::word_validator::SimpleWordValidator;
 use task_tools::presentation::state::AppState;
-use task_tools::build_router;
 
 pub struct TestApp {
     pub router: Router,
@@ -34,8 +35,8 @@ pub struct TestApp {
 pub async fn setup_test_app() -> TestApp {
     dotenvy::dotenv().ok();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set for integration tests");
+    let database_url =
+        std::env::var("DATABASE_URL").expect("DATABASE_URL must be set for integration tests");
 
     let pool = PgPool::connect(&database_url)
         .await
@@ -47,10 +48,8 @@ pub async fn setup_test_app() -> TestApp {
         .expect("failed to run migrations");
 
     let storage_dir = tempfile::tempdir().expect("failed to create temp storage dir");
-    let storage: Arc<dyn StorageRepository> = Arc::new(LocalStorageRepository::new(
-        storage_dir.path(),
-        50,
-    ));
+    let storage: Arc<dyn StorageRepository> =
+        Arc::new(LocalStorageRepository::new(storage_dir.path(), 50));
     storage
         .ensure_layout()
         .await
@@ -85,6 +84,7 @@ pub async fn setup_test_app() -> TestApp {
         activity_log_repo.clone(),
         storage,
         Arc::new(LopPdfValidator::new(50)),
+        Arc::new(SimpleWordValidator::new(50)),
         Arc::new(UnoserverClient::new(
             std::env::var("UNOSERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
             std::env::var("UNOSERVER_PORT")

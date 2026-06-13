@@ -104,7 +104,7 @@ async fn delete_draft_job_only_allows_draft_status() {
     let storage = Arc::new(MockStorage::new(temp.path().to_path_buf()));
     storage.ensure_layout().await.expect("storage layout");
     storage
-        .save_input(user_id, draft.id, JobType::PdfToWord, &minimal_valid_pdf())
+        .save_input(user_id, draft.id, JobType::PdfToWord, "pdf", &minimal_valid_pdf())
         .await
         .expect("save draft input");
 

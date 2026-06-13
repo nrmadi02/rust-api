@@ -13,6 +13,7 @@ use task_tools::domain::conversion_job::{
 };
 use task_tools::domain::pdf_validator::{PdfInfo, PdfValidationError, PdfValidator};
 use task_tools::domain::storage::{StorageError, StorageRepository, StorageResult, StoredPaths};
+use task_tools::domain::word_validator::{WordFormat, WordInfo, WordValidationError, WordValidator};
 
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -173,6 +174,22 @@ impl PdfValidator for MockPdfValidator {
     }
 }
 
+pub struct MockWordValidator;
+
+impl WordValidator for MockWordValidator {
+    fn validate(&self, bytes: &[u8], extension: &str) -> Result<WordInfo, WordValidationError> {
+        let format = match extension.to_lowercase().as_str() {
+            "docx" => WordFormat::Docx,
+            "doc" => WordFormat::Doc,
+            _ => return Err(WordValidationError::InvalidFormat),
+        };
+        Ok(WordInfo {
+            file_size_bytes: bytes.len() as u64,
+            file_format: format,
+        })
+    }
+}
+
 pub struct MockStorage {
     base_path: PathBuf,
 }
@@ -185,8 +202,8 @@ impl MockStorage {
 
 #[async_trait]
 impl StorageRepository for MockStorage {
-    fn input_relative_path(&self, user_id: Uuid, job_id: Uuid) -> String {
-        format!("uploads/{user_id}/{job_id}/input.pdf")
+    fn input_relative_path(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> String {
+        format!("uploads/{user_id}/{job_id}/input.{}", extension)
     }
 
     fn output_relative_path(&self, job_id: Uuid, job_type: JobType) -> String {
@@ -208,11 +225,12 @@ impl StorageRepository for MockStorage {
         user_id: Uuid,
         job_id: Uuid,
         _job_type: JobType,
+        extension: &str,
         data: &[u8],
     ) -> StorageResult<StoredPaths> {
         let input = self
             .base_path
-            .join(self.input_relative_path(user_id, job_id));
+            .join(self.input_relative_path(user_id, job_id, extension));
         if let Some(parent) = input.parent() {
             tokio::fs::create_dir_all(parent)
                 .await
@@ -247,10 +265,10 @@ impl StorageRepository for MockStorage {
         Ok(output)
     }
 
-    async fn read_input(&self, user_id: Uuid, job_id: Uuid) -> StorageResult<Vec<u8>> {
+    async fn read_input(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> StorageResult<Vec<u8>> {
         let input = self
             .base_path
-            .join(self.input_relative_path(user_id, job_id));
+            .join(self.input_relative_path(user_id, job_id, extension));
         tokio::fs::read(input)
             .await
             .map_err(|_| StorageError::NotFound)
@@ -309,6 +327,7 @@ pub fn conversion_service(
         activity_log_repo,
         storage,
         Arc::new(MockPdfValidator::default_info()),
+        Arc::new(MockWordValidator),
         Arc::new(MockUnoConverter),
         base_path,
     )
