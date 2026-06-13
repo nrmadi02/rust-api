@@ -115,6 +115,48 @@ impl ActivityLog {
         .with_metadata(metadata)
     }
 
+    pub fn upload_images(
+        user_id: Uuid,
+        job_id: Uuid,
+        image_count: usize,
+        total_size: i64,
+    ) -> Self {
+        let metadata = serde_json::json!({
+            "image_count": image_count,
+            "total_size_bytes": total_size,
+        });
+
+        Self::new(
+            user_id,
+            "upload_images",
+            Some(ResourceType::ConversionJob),
+            Some(job_id),
+        )
+        .with_metadata(metadata)
+    }
+
+    pub fn upload_pdf_to_image(
+        user_id: Uuid,
+        job_id: Uuid,
+        file_name: &str,
+        file_size: i64,
+        page_count: usize,
+    ) -> Self {
+        let metadata = serde_json::json!({
+            "file_name": file_name,
+            "file_size_bytes": file_size,
+            "page_count": page_count,
+        });
+
+        Self::new(
+            user_id,
+            "upload_pdf_to_image",
+            Some(ResourceType::ConversionJob),
+            Some(job_id),
+        )
+        .with_metadata(metadata)
+    }
+
     pub fn download_file(user_id: Uuid, job_id: Uuid, file_name: &str) -> Self {
         let metadata = serde_json::json!({
             "file_name": file_name,

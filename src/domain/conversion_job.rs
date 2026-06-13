@@ -11,27 +11,35 @@ use uuid::Uuid;
 pub enum JobType {
     PdfToWord,
     WordToPdf,
+    ImageToPdf,
+    PdfToImage,
 }
 
 impl JobType {
     pub fn output_extension(&self) -> &str {
         match self {
             JobType::PdfToWord => "docx",
-            JobType::WordToPdf => "pdf",
+            JobType::WordToPdf | JobType::ImageToPdf => "pdf",
+            JobType::PdfToImage => "zip",
         }
     }
 
     pub fn is_valid_input(&self, extension: &str) -> bool {
         match self {
-            JobType::PdfToWord => extension.eq_ignore_ascii_case("pdf"),
+            JobType::PdfToWord | JobType::PdfToImage => extension.eq_ignore_ascii_case("pdf"),
             JobType::WordToPdf => matches!(extension.to_lowercase().as_str(), "doc" | "docx"),
+            JobType::ImageToPdf => matches!(
+                extension.to_lowercase().as_str(),
+                "jpg" | "jpeg" | "png"
+            ),
         }
     }
 
     pub fn default_input_extension(&self) -> &str {
         match self {
-            JobType::PdfToWord => "pdf",
+            JobType::PdfToWord | JobType::PdfToImage => "pdf",
             JobType::WordToPdf => "docx",
+            JobType::ImageToPdf => "jpg",
         }
     }
 }

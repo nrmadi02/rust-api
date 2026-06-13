@@ -23,6 +23,7 @@ pub type StorageResult<T> = Result<T, StorageError>;
 pub trait StorageRepository: Send + Sync {
     fn input_relative_path(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> String;
     fn output_relative_path(&self, job_id: Uuid, job_type: JobType) -> String;
+    fn image_dir_relative_path(&self, user_id: Uuid, job_id: Uuid) -> String;
 
     async fn ensure_layout(&self) -> StorageResult<()>;
 
@@ -35,6 +36,15 @@ pub trait StorageRepository: Send + Sync {
         data: &[u8],
     ) -> StorageResult<StoredPaths>;
 
+    async fn save_image_input(
+        &self,
+        user_id: Uuid,
+        job_id: Uuid,
+        index: usize,
+        extension: &str,
+        data: &[u8],
+    ) -> StorageResult<()>;
+
     async fn save_output(
         &self,
         job_id: Uuid,
@@ -46,4 +56,12 @@ pub trait StorageRepository: Send + Sync {
     async fn read_output(&self, job_id: Uuid, job_type: JobType) -> StorageResult<Vec<u8>>;
 
     async fn delete_job_files(&self, user_id: Uuid, job_id: Uuid) -> StorageResult<()>;
+
+    async fn save_page_images(
+        &self,
+        job_id: Uuid,
+        pages: &[(u32, Vec<u8>)],
+    ) -> StorageResult<()>;
+
+    async fn read_page_image(&self, job_id: Uuid, page: u32) -> StorageResult<Vec<u8>>;
 }
