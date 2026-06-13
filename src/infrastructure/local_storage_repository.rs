@@ -34,8 +34,8 @@ impl LocalStorageRepository {
             .join(job_id.to_string())
     }
 
-    fn input_file(&self, user_id: Uuid, job_id: Uuid) -> PathBuf {
-        self.input_dir(user_id, job_id).join("input.pdf")
+    fn input_file(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> PathBuf {
+        self.input_dir(user_id, job_id).join(format!("input.{}", extension))
     }
 
     fn output_dir(&self, job_id: Uuid) -> PathBuf {
@@ -85,8 +85,8 @@ impl LocalStorageRepository {
 
 #[async_trait]
 impl StorageRepository for LocalStorageRepository {
-    fn input_relative_path(&self, user_id: Uuid, job_id: Uuid) -> String {
-        format!("uploads/{}/{}/input.pdf", user_id, job_id)
+    fn input_relative_path(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> String {
+        format!("uploads/{}/{}/input.{}", user_id, job_id, extension)
     }
 
     fn output_relative_path(&self, job_id: Uuid, job_type: JobType) -> String {
@@ -108,10 +108,12 @@ impl StorageRepository for LocalStorageRepository {
         user_id: Uuid,
         job_id: Uuid,
         job_type: JobType,
+        extension: &str,
         data: &[u8],
     ) -> StorageResult<StoredPaths> {
         self.check_size(data)?;
-        let input = self.input_file(user_id, job_id);
+        let _ = job_type;
+        let input = self.input_file(user_id, job_id, extension);
         let output = self.output_file(job_id, job_type);
         Self::write_file(&input, data).await?;
         Ok(StoredPaths { input, output })
@@ -128,8 +130,8 @@ impl StorageRepository for LocalStorageRepository {
         Ok(path)
     }
 
-    async fn read_input(&self, user_id: Uuid, job_id: Uuid) -> StorageResult<Vec<u8>> {
-        let path = self.input_file(user_id, job_id);
+    async fn read_input(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> StorageResult<Vec<u8>> {
+        let path = self.input_file(user_id, job_id, extension);
         fs::read(&path).await.map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {
                 StorageError::NotFound
