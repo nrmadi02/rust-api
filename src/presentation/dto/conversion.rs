@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use utoipa::{IntoParams, ToSchema};
 
 use crate::domain::conversion_job::{ConversionJob, JobStatus, JobType};
@@ -10,12 +10,44 @@ pub struct UploadFileRequest {
     pub file: String,
 }
 
+fn deserialize_optional_job_status<'de, D>(deserializer: D) -> Result<Option<JobStatus>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    match s {
+        None => Ok(None),
+        Some(val) => {
+            let status = match val.to_lowercase().as_str() {
+                "draft" => JobStatus::Draft,
+                "processing" => JobStatus::Processing,
+                "queued" => JobStatus::Queued,
+                "done" => JobStatus::Done,
+                "failed" => JobStatus::Failed,
+                other => {
+                    return Err(serde::de::Error::custom(format!(
+                        "invalid status '{}', valid values: draft, processing, queued, done, failed",
+                        other
+                    )));
+                }
+            };
+            Ok(Some(status))
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, IntoParams)]
 #[into_params(parameter_in = Query)]
 pub struct ListJobsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
-    #[param(example = "draft")]
+    /// Filter by job status. Valid values: `draft`, `processing`, `queued`, `done`, `failed`
+    #[param(
+        value_type = Option<JobStatus>,
+        example = "done",
+        nullable = true
+    )]
+    #[serde(default, deserialize_with = "deserialize_optional_job_status")]
     pub status: Option<JobStatus>,
 }
 
