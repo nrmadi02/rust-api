@@ -73,7 +73,10 @@ impl ConversionJobRepository for MockJobRepo {
 
         let total = jobs.len() as u64;
         let start = ((page.saturating_sub(1)) * per_page) as usize;
-        let end = start.saturating_add(per_page as usize).min(jobs.len());
+        if start >= jobs.len() {
+            return Ok((Vec::new(), total));
+        }
+        let end = (start + per_page as usize).min(jobs.len());
         Ok((jobs[start..end].to_vec(), total))
     }
 
