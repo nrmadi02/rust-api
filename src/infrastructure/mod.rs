@@ -5,3 +5,4 @@ pub mod login_attempt_repository;
 pub mod pdf_validator;
 pub mod unoserver_client;
 pub mod user_repository;
+pub mod word_validator;
