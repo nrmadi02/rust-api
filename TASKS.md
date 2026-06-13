@@ -263,13 +263,13 @@
 
 > **Goal**: Perluas kemampuan konversi dengan format-format populer lainnya.
 
-- **Word → PDF** (`POST /api/v1/convert/word-to-pdf`)
+- **Word → PDF** (`POST /api/v1/convert/word-to-pdf`) ✅ SELESAI
   - Upload `.doc` / `.docx`, hasilkan `.pdf`
-- **Image → PDF** (`POST /api/v1/convert/image-to-pdf`)
+- **Image → PDF** (`POST /api/v1/convert/image-to-pdf`)  ✅ SELESAI
   - Upload satu atau banyak gambar (`.jpg`, `.jpeg`, `.png`)
   - Hasilkan satu file `.pdf`
   - Support pengaturan urutan halaman
-- **PDF → Image** (`POST /api/v1/convert/pdf-to-image`)
+- **PDF → Image** (`POST /api/v1/convert/pdf-to-image`)  ✅ SELESAI
   - Ekstrak setiap halaman PDF menjadi file gambar (`.png` / `.jpg`)
   - Return sebagai ZIP atau individual files
 - **Extend `ConversionJob.job_type`** — tambah varian enum baru
