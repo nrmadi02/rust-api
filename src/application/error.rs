@@ -1,5 +1,6 @@
 use thiserror::Error;
 
+use crate::domain::image_validator::ImageValidationError;
 use crate::domain::pdf_validator::PdfValidationError;
 use crate::domain::storage::StorageError;
 use crate::domain::word_validator::WordValidationError;
@@ -89,6 +90,24 @@ impl From<WordValidationError> for ApplicationError {
                 max_mb, actual_bytes
             )),
             InvalidFormat => ApplicationError::InvalidFile("Not a valid Word file".into()),
+        }
+    }
+}
+
+impl From<ImageValidationError> for ApplicationError {
+    fn from(err: ImageValidationError) -> Self {
+        use ImageValidationError::*;
+        match err {
+            EmptyFile => ApplicationError::InvalidFile("File is empty".into()),
+            FileTooLarge {
+                max_mb,
+                actual_bytes,
+            } => ApplicationError::InvalidFile(format!(
+                "File too large (max {}MB, got {} bytes)",
+                max_mb, actual_bytes
+            )),
+            InvalidFormat => ApplicationError::InvalidFile("Not a valid image file".into()),
+            DecodeFailed(msg) => ApplicationError::InvalidFile(format!("Image decode failed: {msg}")),
         }
     }
 }
