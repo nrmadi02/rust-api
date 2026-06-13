@@ -3,7 +3,7 @@ use crate::domain::conversion_job::{JobStatus, JobType};
 use crate::presentation::dto::activity_log::{ActivityLogResponse, ListActivityLogsResponse};
 use crate::presentation::dto::auth::{AuthResponse, RegisterRequest, UserResponse};
 use crate::presentation::dto::conversion::{
-    ConversionJobResponse, ListJobsResponse, UploadFileRequest,
+    ConversionJobResponse, ListJobsResponse, UploadFileRequest, UploadImagesRequest,
 };
 use crate::presentation::handlers::{activity_log, auth, conversion, health, profile};
 use crate::presentation::response::api::{ApiResponse, PaginationMeta};
@@ -28,10 +28,13 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
         activity_log::list_activity_logs,
         conversion::upload_pdf_to_word,
         conversion::upload_word_to_pdf,
+        conversion::upload_image_to_pdf,
+        conversion::upload_pdf_to_image,
         conversion::list_jobs,
         conversion::get_job,
         conversion::confirm_job,
         conversion::download_job,
+        conversion::download_job_page,
         conversion::delete_job,
     ),
     components(schemas(
@@ -39,6 +42,7 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
         AuthResponse,
         UserResponse,
         UploadFileRequest,
+        UploadImagesRequest,
         ActivityLogResponse,
         ConversionJobResponse,
         ListActivityLogsResponse,

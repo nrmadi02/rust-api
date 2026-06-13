@@ -46,6 +46,14 @@ pub fn create_router() -> Router<AppState> {
             "/api/v1/convert/word-to-pdf",
             post(conversion::upload_word_to_pdf),
         )
+        .route(
+            "/api/v1/convert/image-to-pdf",
+            post(conversion::upload_image_to_pdf),
+        )
+        .route(
+            "/api/v1/convert/pdf-to-image",
+            post(conversion::upload_pdf_to_image),
+        )
         .route("/api/v1/convert/jobs", get(conversion::list_jobs))
         .route(
             "/api/v1/convert/jobs/{id}",
@@ -54,6 +62,10 @@ pub fn create_router() -> Router<AppState> {
         .route(
             "/api/v1/convert/jobs/{id}/download",
             get(conversion::download_job),
+        )
+        .route(
+            "/api/v1/convert/jobs/{id}/pages/{page}",
+            get(conversion::download_job_page),
         )
         .route(
             "/api/v1/convert/jobs/{id}/confirm",

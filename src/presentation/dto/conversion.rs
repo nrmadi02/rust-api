@@ -10,6 +10,15 @@ pub struct UploadFileRequest {
     pub file: String,
 }
 
+#[derive(Debug, ToSchema)]
+pub struct UploadImagesRequest {
+    #[schema(value_type = Vec<String>)]
+    pub files: Vec<String>,
+
+    #[schema(value_type = Option<String>, example = "0,2,1")]
+    pub order: Option<String>,
+}
+
 fn deserialize_optional_job_status<'de, D>(deserializer: D) -> Result<Option<JobStatus>, D::Error>
 where
     D: Deserializer<'de>,

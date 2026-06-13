@@ -12,14 +12,18 @@ use std::net::SocketAddr;
 
 use self::application::activity_log::ActivityLogService;
 use self::application::auth::AuthService;
-use self::application::conversion::ConversionService;
+use self::application::conversion::{ConversionService, Converters, FileValidators};
 use self::application::jwt::JwtService;
 use self::application::login_attempt::LoginAttemptService;
+use self::domain::pdf_to_image_converter::PdfToImageConverter;
 use self::domain::storage::StorageRepository;
 use self::infrastructure::activity_log_repository::PgActivityLogRepository;
 use self::infrastructure::conversion_job_repository::PgConversionJobRepository;
+use self::infrastructure::image_to_pdf_converter::LopImageToPdfConverter;
+use self::infrastructure::image_validator::SimpleImageValidator;
 use self::infrastructure::local_storage_repository::LocalStorageRepository;
 use self::infrastructure::login_attempt_repository::PgLoginAttemptRepository;
+use self::infrastructure::pdf_to_image_converter::PopplerPdfToImageConverter;
 use self::infrastructure::pdf_validator::LopPdfValidator;
 use self::infrastructure::unoserver_client::UnoserverClient;
 use self::infrastructure::user_repository::PgUserRepository;
@@ -58,17 +62,26 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         jwt_service.clone(),
     ));
     let activity_log_repo = Arc::new(PgActivityLogRepository::new(pool.clone()));
+    let pdf_to_image_converter: Arc<dyn PdfToImageConverter> =
+        Arc::new(PopplerPdfToImageConverter::new(150));
     let conversion_service = Arc::new(ConversionService::new(
         Arc::new(PgConversionJobRepository::new(pool.clone())),
         activity_log_repo.clone(),
         storage,
-        Arc::new(LopPdfValidator::new(config.max_upload_size_mb)),
-        Arc::new(SimpleWordValidator::new(config.max_upload_size_mb)),
-        Arc::new(UnoserverClient::new(
-            config.uno_server_host,
-            config.uno_server_port,
-            config.uno_server_timeout_secs,
-        )),
+        FileValidators {
+            pdf: Arc::new(LopPdfValidator::new(config.max_upload_size_mb)),
+            word: Arc::new(SimpleWordValidator::new(config.max_upload_size_mb)),
+            image: Arc::new(SimpleImageValidator::new(config.max_upload_size_mb)),
+        },
+        Converters {
+            uno: Arc::new(UnoserverClient::new(
+                config.uno_server_host,
+                config.uno_server_port,
+                config.uno_server_timeout_secs,
+            )),
+            image_to_pdf: Arc::new(LopImageToPdfConverter::new()),
+            pdf_to_image: pdf_to_image_converter,
+        },
         config.storage_base_path.into(),
     ));
     let activity_log_service = Arc::new(ActivityLogService::new(activity_log_repo));
