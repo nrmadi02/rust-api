@@ -127,3 +127,121 @@ async fn delete_draft_job_only_allows_draft_status() {
         .expect_err("queued job should not be deletable");
     assert!(matches!(err, ApplicationError::JobNotDraft));
 }
+
+#[tokio::test]
+async fn list_jobs_returns_only_current_user_jobs() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let job_repo = Arc::new(MockJobRepo::new());
+    let user_a = Uuid::new_v4();
+    let user_b = Uuid::new_v4();
+
+    job_repo
+        .seed(ConversionJob::new(user_a, JobType::PdfToWord, "a1.pdf".into()))
+        .await;
+    job_repo
+        .seed(ConversionJob::new(user_a, JobType::PdfToWord, "a2.pdf".into()))
+        .await;
+    job_repo
+        .seed(ConversionJob::new(user_b, JobType::PdfToWord, "b1.pdf".into()))
+        .await;
+
+    let service = conversion_service(
+        job_repo,
+        Arc::new(MockActivityLogRepo::new()),
+        Arc::new(MockStorage::new(temp.path().to_path_buf())),
+        temp.path().to_path_buf(),
+    );
+
+    let (jobs, total) = service
+        .list_my_conversion_jobs(user_a, 1, 10, None)
+        .await
+        .expect("list should succeed");
+
+    assert_eq!(total, 2);
+    assert_eq!(jobs.len(), 2);
+    assert!(jobs.iter().all(|j| j.user_id == user_a));
+}
+
+#[tokio::test]
+async fn list_jobs_filters_by_status() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let job_repo = Arc::new(MockJobRepo::new());
+    let user_id = Uuid::new_v4();
+
+    let draft = ConversionJob::new(user_id, JobType::PdfToWord, "draft.pdf".into());
+    let mut queued = ConversionJob::new(user_id, JobType::PdfToWord, "queued.pdf".into());
+    queued.enqueue().expect("enqueue");
+
+    job_repo.seed(draft.clone()).await;
+    job_repo.seed(queued.clone()).await;
+
+    let service = conversion_service(
+        job_repo,
+        Arc::new(MockActivityLogRepo::new()),
+        Arc::new(MockStorage::new(temp.path().to_path_buf())),
+        temp.path().to_path_buf(),
+    );
+
+    let (draft_jobs, draft_total) = service
+        .list_my_conversion_jobs(user_id, 1, 10, Some(JobStatus::Draft))
+        .await
+        .expect("list draft should succeed");
+    assert_eq!(draft_total, 1);
+    assert_eq!(draft_jobs[0].id, draft.id);
+
+    let (queued_jobs, queued_total) = service
+        .list_my_conversion_jobs(user_id, 1, 10, Some(JobStatus::Queued))
+        .await
+        .expect("list queued should succeed");
+    assert_eq!(queued_total, 1);
+    assert_eq!(queued_jobs[0].id, queued.id);
+
+    let (_, done_total) = service
+        .list_my_conversion_jobs(user_id, 1, 10, Some(JobStatus::Done))
+        .await
+        .expect("list done should succeed");
+    assert_eq!(done_total, 0);
+}
+
+#[tokio::test]
+async fn list_jobs_paginates_correctly() {
+    let temp = tempfile::tempdir().expect("tempdir");
+    let job_repo = Arc::new(MockJobRepo::new());
+    let user_id = Uuid::new_v4();
+
+    for i in 0..5 {
+        job_repo
+            .seed(ConversionJob::new(
+                user_id,
+                JobType::PdfToWord,
+                format!("file{i}.pdf"),
+            ))
+            .await;
+    }
+
+    let service = conversion_service(
+        job_repo,
+        Arc::new(MockActivityLogRepo::new()),
+        Arc::new(MockStorage::new(temp.path().to_path_buf())),
+        temp.path().to_path_buf(),
+    );
+
+    let (page1, total) = service
+        .list_my_conversion_jobs(user_id, 1, 2, None)
+        .await
+        .expect("page 1 should succeed");
+    assert_eq!(total, 5);
+    assert_eq!(page1.len(), 2);
+
+    let (page3, _) = service
+        .list_my_conversion_jobs(user_id, 3, 2, None)
+        .await
+        .expect("page 3 should succeed");
+    assert_eq!(page3.len(), 1);
+
+    let (beyond, _) = service
+        .list_my_conversion_jobs(user_id, 99, 2, None)
+        .await
+        .expect("out of range page should return empty");
+    assert!(beyond.is_empty());
+}
