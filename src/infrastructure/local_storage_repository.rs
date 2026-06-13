@@ -38,8 +38,20 @@ impl LocalStorageRepository {
         self.input_dir(user_id, job_id).join(format!("input.{}", extension))
     }
 
+    fn image_dir(&self, user_id: Uuid, job_id: Uuid) -> PathBuf {
+        self.input_dir(user_id, job_id).join("images")
+    }
+
+    fn image_file(&self, user_id: Uuid, job_id: Uuid, index: usize, extension: &str) -> PathBuf {
+        self.image_dir(user_id, job_id).join(format!("page_{:03}.{}", index, extension))
+    }
+
     fn output_dir(&self, job_id: Uuid) -> PathBuf {
         self.outputs_root().join(job_id.to_string())
+    }
+
+    fn pages_dir(&self, job_id: Uuid) -> PathBuf {
+        self.output_dir(job_id).join("pages")
     }
 
     fn output_filename(job_type: JobType) -> String {
@@ -93,6 +105,10 @@ impl StorageRepository for LocalStorageRepository {
         format!("outputs/{}/{}", job_id, Self::output_filename(job_type))
     }
 
+    fn image_dir_relative_path(&self, user_id: Uuid, job_id: Uuid) -> String {
+        format!("uploads/{}/{}/images/", user_id, job_id)
+    }
+
     async fn ensure_layout(&self) -> StorageResult<()> {
         fs::create_dir_all(self.uploads_root())
             .await
@@ -117,6 +133,19 @@ impl StorageRepository for LocalStorageRepository {
         let output = self.output_file(job_id, job_type);
         Self::write_file(&input, data).await?;
         Ok(StoredPaths { input, output })
+    }
+
+    async fn save_image_input(
+        &self,
+        user_id: Uuid,
+        job_id: Uuid,
+        index: usize,
+        extension: &str,
+        data: &[u8],
+    ) -> StorageResult<()> {
+        self.check_size(data)?;
+        let path = self.image_file(user_id, job_id, index, extension);
+        Self::write_file(&path, data).await
     }
 
     async fn save_output(
@@ -167,5 +196,32 @@ impl StorageRepository for LocalStorageRepository {
                 .map_err(|e| StorageError::Io(e.to_string()))?;
         }
         Ok(())
+    }
+
+    async fn save_page_images(
+        &self,
+        job_id: Uuid,
+        pages: &[(u32, Vec<u8>)],
+    ) -> StorageResult<()> {
+        let dir = self.pages_dir(job_id);
+        fs::create_dir_all(&dir)
+            .await
+            .map_err(|e| StorageError::Io(e.to_string()))?;
+        for (page_num, data) in pages {
+            let path = dir.join(format!("page_{:03}.png", page_num));
+            Self::write_file(&path, data).await?;
+        }
+        Ok(())
+    }
+
+    async fn read_page_image(&self, job_id: Uuid, page: u32) -> StorageResult<Vec<u8>> {
+        let path = self.pages_dir(job_id).join(format!("page_{:03}.png", page));
+        fs::read(&path).await.map_err(|e| {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                StorageError::NotFound
+            } else {
+                StorageError::Io(e.to_string())
+            }
+        })
     }
 }

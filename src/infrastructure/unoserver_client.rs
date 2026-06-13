@@ -37,7 +37,8 @@ impl ConvertFormat {
     pub fn from_job_type(job_type: &JobType) -> Self {
         match job_type {
             JobType::PdfToWord => ConvertFormat::Docx,
-            JobType::WordToPdf => ConvertFormat::Pdf,
+            JobType::WordToPdf | JobType::ImageToPdf => ConvertFormat::Pdf,
+            &JobType::PdfToImage => ConvertFormat::Pdf,
         }
     }
 }
