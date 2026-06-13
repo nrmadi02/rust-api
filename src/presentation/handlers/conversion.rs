@@ -52,6 +52,42 @@ pub async fn upload_pdf_to_word(
 }
 
 #[utoipa::path(
+    post,
+    path = "/api/v1/convert/word-to-pdf",
+    tag = "Conversion",
+    security(
+        ("bearerAuth" = []),
+    ),
+    request_body(content = UploadFileRequest, content_type = "multipart/form-data"),
+    responses(
+        (status = 202, description = "Word file uploaded and draft conversion job created", body = inline(ApiResponse<ConversionJobResponse>)),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error"),
+    )
+)]
+pub async fn upload_word_to_pdf(
+    auth: AuthUser,
+    State(state): State<AppState>,
+    mut multipart: Multipart,
+) -> Result<impl IntoResponse, AppError> {
+    let (file_bytes, filename) = read_uploaded_file(&mut multipart).await?;
+
+    let result = state
+        .conversion_service
+        .upload_word_to_pdf(auth.user_id, &file_bytes, &filename)
+        .await?;
+
+    let body = ApiResponse::success(
+        true,
+        "Word file uploaded successfully".to_string(),
+        ConversionJobResponse::from(result.job),
+    );
+
+    Ok((StatusCode::ACCEPTED, Json(body)))
+}
+
+#[utoipa::path(
     get,
     path = "/api/v1/convert/jobs",
     tag = "Conversion",

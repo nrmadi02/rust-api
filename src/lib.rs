@@ -23,6 +23,7 @@ use self::infrastructure::login_attempt_repository::PgLoginAttemptRepository;
 use self::infrastructure::pdf_validator::LopPdfValidator;
 use self::infrastructure::unoserver_client::UnoserverClient;
 use self::infrastructure::user_repository::PgUserRepository;
+use self::infrastructure::word_validator::SimpleWordValidator;
 use self::presentation::state::AppState;
 
 pub fn build_router() -> Router<AppState> {
@@ -62,6 +63,7 @@ pub async fn run() -> Result<(), Box<dyn std::error::Error>> {
         activity_log_repo.clone(),
         storage,
         Arc::new(LopPdfValidator::new(config.max_upload_size_mb)),
+        Arc::new(SimpleWordValidator::new(config.max_upload_size_mb)),
         Arc::new(UnoserverClient::new(
             config.uno_server_host,
             config.uno_server_port,

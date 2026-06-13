@@ -41,7 +41,6 @@ where
 pub struct ListJobsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,
-    /// Filter by job status. Valid values: `draft`, `processing`, `queued`, `done`, `failed`
     #[param(
         value_type = Option<JobStatus>,
         example = "done",

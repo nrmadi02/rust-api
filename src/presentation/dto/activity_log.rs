@@ -5,6 +5,7 @@ use crate::domain::activity_log::{ActivityLog, ResourceType};
 use crate::presentation::response::api::PaginationMeta;
 
 #[derive(Debug, Deserialize, IntoParams)]
+#[into_params(parameter_in = Query)]
 pub struct ListActivityLogsQuery {
     pub page: Option<u32>,
     pub per_page: Option<u32>,

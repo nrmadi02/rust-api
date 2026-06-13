@@ -27,6 +27,7 @@ use utoipa::openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme};
         profile::me,
         activity_log::list_activity_logs,
         conversion::upload_pdf_to_word,
+        conversion::upload_word_to_pdf,
         conversion::list_jobs,
         conversion::get_job,
         conversion::confirm_job,
