@@ -1,7 +1,10 @@
 pub mod activity_log_repository;
 pub mod conversion_job_repository;
+pub mod image_to_pdf_converter;
+pub mod image_validator;
 pub mod local_storage_repository;
 pub mod login_attempt_repository;
+pub mod pdf_to_image_converter;
 pub mod pdf_validator;
 pub mod unoserver_client;
 pub mod user_repository;

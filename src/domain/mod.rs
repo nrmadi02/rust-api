@@ -1,6 +1,9 @@
 pub mod activity_log;
 pub mod conversion_job;
+pub mod image_to_pdf_converter;
+pub mod image_validator;
 pub mod login_attempt;
+pub mod pdf_to_image_converter;
 pub mod pdf_validator;
 pub mod storage;
 pub mod user;
