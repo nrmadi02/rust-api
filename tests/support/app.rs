@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use task_tools::application::activity_log::ActivityLogService;
 use task_tools::application::auth::AuthService;
-use task_tools::application::conversion::ConversionService;
+use task_tools::application::conversion::{ConversionService, Converters, FileValidators};
 use task_tools::application::jwt::JwtService;
 use task_tools::application::login_attempt::LoginAttemptService;
 use task_tools::application::password::hash_password;
@@ -16,8 +16,11 @@ use task_tools::domain::storage::StorageRepository;
 use task_tools::domain::user::UserRepository;
 use task_tools::infrastructure::activity_log_repository::PgActivityLogRepository;
 use task_tools::infrastructure::conversion_job_repository::PgConversionJobRepository;
+use task_tools::infrastructure::image_to_pdf_converter::LopImageToPdfConverter;
+use task_tools::infrastructure::image_validator::SimpleImageValidator;
 use task_tools::infrastructure::local_storage_repository::LocalStorageRepository;
 use task_tools::infrastructure::login_attempt_repository::PgLoginAttemptRepository;
+use task_tools::infrastructure::pdf_to_image_converter::PopplerPdfToImageConverter;
 use task_tools::infrastructure::pdf_validator::LopPdfValidator;
 use task_tools::infrastructure::unoserver_client::UnoserverClient;
 use task_tools::infrastructure::user_repository::PgUserRepository;
@@ -83,16 +86,23 @@ pub async fn setup_test_app() -> TestApp {
         Arc::new(PgConversionJobRepository::new(pool.clone())),
         activity_log_repo.clone(),
         storage,
-        Arc::new(LopPdfValidator::new(50)),
-        Arc::new(SimpleWordValidator::new(50)),
-        Arc::new(UnoserverClient::new(
-            std::env::var("UNOSERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
-            std::env::var("UNOSERVER_PORT")
-                .ok()
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(2003),
-            60,
-        )),
+        FileValidators {
+            pdf: Arc::new(LopPdfValidator::new(50)),
+            word: Arc::new(SimpleWordValidator::new(50)),
+            image: Arc::new(SimpleImageValidator::new(50)),
+        },
+        Converters {
+            uno: Arc::new(UnoserverClient::new(
+                std::env::var("UNOSERVER_HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
+                std::env::var("UNOSERVER_PORT")
+                    .ok()
+                    .and_then(|v| v.parse().ok())
+                    .unwrap_or(2003),
+                60,
+            )),
+            image_to_pdf: Arc::new(LopImageToPdfConverter::new()),
+            pdf_to_image: Arc::new(PopplerPdfToImageConverter::new(150)),
+        },
         storage_dir.path().to_path_buf(),
     ));
     let activity_log_service = Arc::new(ActivityLogService::new(activity_log_repo));

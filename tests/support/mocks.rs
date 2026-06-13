@@ -11,9 +11,14 @@ use task_tools::domain::activity_log::{ActivityLog, ActivityLogRepository};
 use task_tools::domain::conversion_job::{
     ConversionJob, ConversionJobRepository, JobStatus, JobType, UnoConverter,
 };
+use task_tools::domain::image_to_pdf_converter::ImageToPdfConverter;
+use task_tools::domain::image_validator::{ImageInfo, ImageValidationError, ImageValidator};
+use task_tools::domain::pdf_to_image_converter::PdfToImageConverter;
 use task_tools::domain::pdf_validator::{PdfInfo, PdfValidationError, PdfValidator};
 use task_tools::domain::storage::{StorageError, StorageRepository, StorageResult, StoredPaths};
-use task_tools::domain::word_validator::{WordFormat, WordInfo, WordValidationError, WordValidator};
+use task_tools::domain::word_validator::{
+    WordFormat, WordInfo, WordValidationError, WordValidator,
+};
 
 type DynError = Box<dyn std::error::Error + Send + Sync>;
 
@@ -190,6 +195,48 @@ impl WordValidator for MockWordValidator {
     }
 }
 
+pub struct MockImageValidator;
+
+impl ImageValidator for MockImageValidator {
+    fn validate(&self, bytes: &[u8], extension: &str) -> Result<ImageInfo, ImageValidationError> {
+        let ext = extension.to_lowercase();
+        if !matches!(ext.as_str(), "jpg" | "jpeg" | "png") {
+            return Err(ImageValidationError::InvalidFormat);
+        }
+        Ok(ImageInfo {
+            file_size_bytes: bytes.len() as u64,
+            width: 100,
+            height: 100,
+        })
+    }
+}
+
+pub struct MockImageToPdfConverter;
+
+impl ImageToPdfConverter for MockImageToPdfConverter {
+    fn convert(&self, image_paths: &[&Path], output: &Path) -> Result<(), DynError> {
+        if let Some(parent) = output.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(
+            output,
+            format!("mock-pdf-from-{}-images", image_paths.len()),
+        )?;
+        Ok(())
+    }
+}
+
+pub struct MockPdfToImageConverter;
+
+impl PdfToImageConverter for MockPdfToImageConverter {
+    fn convert(&self, _input: &Path, output_dir: &Path) -> Result<Vec<PathBuf>, DynError> {
+        std::fs::create_dir_all(output_dir)?;
+        let page = output_dir.join("page-1.png");
+        std::fs::write(&page, b"mock-png-data")?;
+        Ok(vec![page])
+    }
+}
+
 pub struct MockStorage {
     base_path: PathBuf,
 }
@@ -245,6 +292,31 @@ impl StorageRepository for MockStorage {
         })
     }
 
+    fn image_dir_relative_path(&self, user_id: Uuid, job_id: Uuid) -> String {
+        format!("uploads/{}/{}/images/", user_id, job_id)
+    }
+
+    async fn save_image_input(
+        &self,
+        user_id: Uuid,
+        job_id: Uuid,
+        index: usize,
+        extension: &str,
+        data: &[u8],
+    ) -> StorageResult<()> {
+        let dir = self
+            .base_path
+            .join(self.image_dir_relative_path(user_id, job_id));
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(|e| StorageError::Io(e.to_string()))?;
+        let path = dir.join(format!("page_{:03}.{}", index, extension));
+        tokio::fs::write(&path, data)
+            .await
+            .map_err(|e| StorageError::Io(e.to_string()))?;
+        Ok(())
+    }
+
     async fn save_output(
         &self,
         job_id: Uuid,
@@ -265,7 +337,12 @@ impl StorageRepository for MockStorage {
         Ok(output)
     }
 
-    async fn read_input(&self, user_id: Uuid, job_id: Uuid, extension: &str) -> StorageResult<Vec<u8>> {
+    async fn read_input(
+        &self,
+        user_id: Uuid,
+        job_id: Uuid,
+        extension: &str,
+    ) -> StorageResult<Vec<u8>> {
         let input = self
             .base_path
             .join(self.input_relative_path(user_id, job_id, extension));
@@ -295,6 +372,36 @@ impl StorageRepository for MockStorage {
                 .map_err(|e| StorageError::Io(e.to_string()))?;
         }
         Ok(())
+    }
+
+    async fn save_page_images(&self, job_id: Uuid, pages: &[(u32, Vec<u8>)]) -> StorageResult<()> {
+        let dir = self
+            .base_path
+            .join("outputs")
+            .join(job_id.to_string())
+            .join("pages");
+        tokio::fs::create_dir_all(&dir)
+            .await
+            .map_err(|e| StorageError::Io(e.to_string()))?;
+        for (page_num, data) in pages {
+            let path = dir.join(format!("page_{:03}.png", page_num));
+            tokio::fs::write(&path, data)
+                .await
+                .map_err(|e| StorageError::Io(e.to_string()))?;
+        }
+        Ok(())
+    }
+
+    async fn read_page_image(&self, job_id: Uuid, page: u32) -> StorageResult<Vec<u8>> {
+        let path = self
+            .base_path
+            .join("outputs")
+            .join(job_id.to_string())
+            .join("pages")
+            .join(format!("page_{:03}.png", page));
+        tokio::fs::read(&path)
+            .await
+            .map_err(|_| StorageError::NotFound)
     }
 }
 
@@ -326,9 +433,16 @@ pub fn conversion_service(
         job_repo,
         activity_log_repo,
         storage,
-        Arc::new(MockPdfValidator::default_info()),
-        Arc::new(MockWordValidator),
-        Arc::new(MockUnoConverter),
+        task_tools::application::conversion::FileValidators {
+            pdf: Arc::new(MockPdfValidator::default_info()),
+            word: Arc::new(MockWordValidator),
+            image: Arc::new(MockImageValidator),
+        },
+        task_tools::application::conversion::Converters {
+            uno: Arc::new(MockUnoConverter),
+            image_to_pdf: Arc::new(MockImageToPdfConverter),
+            pdf_to_image: Arc::new(MockPdfToImageConverter),
+        },
         base_path,
     )
 }
