@@ -95,6 +95,26 @@ impl ActivityLog {
         .with_metadata(metadata)
     }
 
+    pub fn upload_word_file(
+        user_id: Uuid,
+        job_id: Uuid,
+        file_name: &str,
+        file_size: i64,
+    ) -> Self {
+        let metadata = serde_json::json!({
+            "file_name": file_name,
+            "file_size_bytes": file_size,
+        });
+
+        Self::new(
+            user_id,
+            "upload_word",
+            Some(ResourceType::ConversionJob),
+            Some(job_id),
+        )
+        .with_metadata(metadata)
+    }
+
     pub fn download_file(user_id: Uuid, job_id: Uuid, file_name: &str) -> Self {
         let metadata = serde_json::json!({
             "file_name": file_name,

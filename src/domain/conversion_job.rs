@@ -27,6 +27,13 @@ impl JobType {
             JobType::WordToPdf => matches!(extension.to_lowercase().as_str(), "doc" | "docx"),
         }
     }
+
+    pub fn default_input_extension(&self) -> &str {
+        match self {
+            JobType::PdfToWord => "pdf",
+            JobType::WordToPdf => "docx",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, ToSchema)]
